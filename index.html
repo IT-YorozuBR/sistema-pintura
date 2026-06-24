@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Apontamento de Produção — Leitura QR Code</title>
+<!-- ExcelJS para gerar Excel com formatação (cabeçalho, largura, filtros) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<!-- html5-qrcode: leitura real de QR Code pela câmera -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a;        /* fundo geral */
+    --panel:#ffffff;
+    --ink:#1e293b;
+    --muted:#64748b;
+    --line:#e2e8f0;
+    --green:#16a34a;
+    --green-d:#15803d;
+    --red:#dc2626;
+    --red-d:#b91c1c;
+    --amber:#f59e0b;
+    --amber-d:#d97706;
+    --blue:#2563eb;
+    --blue-d:#1d4ed8;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:"Segoe UI",Roboto,Arial,sans-serif;
+    background:linear-gradient(180deg,#0f172a 0,#1e293b 240px,#f1f5f9 240px,#f1f5f9 100%);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  header.app{
+    color:#fff;
+    padding:22px 28px 10px;
+    display:flex;align-items:center;gap:14px;
+  }
+  header.app .logo{
+    width:42px;height:42px;border-radius:9px;
+    background:#38bdf8;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:20px;color:#0f172a;
+  }
+  header.app h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.3px}
+  header.app p{margin:2px 0 0;font-size:13px;color:#94a3b8}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 20px 60px}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:20px;box-shadow:0 4px 14px rgba(15,23,42,.06);margin-bottom:20px;
+  }
+  .card h2{margin:0 0 14px;font-size:16px;color:#0f172a}
+  .card h2 .sub{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
+
+  /* leitura */
+  .reader-row{display:flex;gap:10px;flex-wrap:wrap}
+  textarea#qrInput{
+    flex:1;min-width:280px;min-height:54px;resize:vertical;
+    padding:12px 14px;font-size:15px;font-family:"Consolas",monospace;
+    border:2px solid var(--line);border-radius:10px;outline:none;
+  }
+  textarea#qrInput:focus{border-color:var(--blue)}
+  .btn{
+    border:none;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:700;
+    cursor:pointer;color:#fff;transition:.12s;white-space:nowrap;
+  }
+  .btn:hover{filter:brightness(1.06)}
+  .btn:active{transform:translateY(1px)}
+  .btn-blue{background:var(--blue)} .btn-blue:hover{background:var(--blue-d)}
+  .btn-green{background:var(--green)} .btn-green:hover{background:var(--green-d)}
+  .btn-red{background:var(--red)} .btn-red:hover{background:var(--red-d)}
+  .btn-amber{background:var(--amber)} .btn-amber:hover{background:var(--amber-d)}
+  .btn-gray{background:#475569}
+  .btn-ghost{background:#fff;color:#334155;border:1px solid var(--line)}
+  .btn[disabled]{opacity:.45;cursor:not-allowed;filter:none}
+
+  .samples{margin-top:12px;font-size:12px;color:var(--muted)}
+  .samples code{
+    display:inline-block;background:#f1f5f9;border:1px solid var(--line);
+    padding:5px 9px;border-radius:7px;margin:4px 6px 0 0;cursor:pointer;
+    font-family:"Consolas",monospace;color:#334155;
+  }
+  .samples code:hover{background:#e2e8f0}
+
+  /* detalhes etiqueta */
+  #detailCard{display:none}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .field{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .field .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .field .val{font-size:16px;font-weight:700;margin-top:3px;word-break:break-all}
+
+  .status-badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700}
+  .st-NOVA{background:#e0e7ff;color:#3730a3}
+  .st-PRODUZIDA{background:#dcfce7;color:#166534}
+  .st-PRODUZIDO_APOS_HOLD{background:#dcfce7;color:#166534}
+  .st-SCRAP{background:#fee2e2;color:#991b1b}
+  .st-HOLD{background:#fef3c7;color:#92400e}
+
+  .actions{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+
+  .alert{padding:14px 16px;border-radius:10px;margin-top:16px;font-size:14px;font-weight:600;display:none}
+  .alert.show{display:block}
+  .alert-hold{background:#fffbeb;border:2px solid var(--amber);color:#92400e}
+  .alert-dup{background:#fef2f2;border:2px solid var(--red);color:#991b1b}
+  .alert-info{background:#eff6ff;border:2px solid var(--blue);color:#1e40af}
+
+  #scrapReasonBox{display:none;margin-top:12px}
+  #scrapReasonBox input{
+    width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:10px;font-size:14px;
+  }
+
+  /* dashboard */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+  .stat{border-radius:14px;padding:16px 18px;color:#fff;position:relative;overflow:hidden}
+  .stat .n{font-size:30px;font-weight:800;line-height:1}
+  .stat .t{font-size:12.5px;margin-top:6px;opacity:.92;font-weight:600}
+  .s-green{background:linear-gradient(135deg,#16a34a,#22c55e)}
+  .s-red{background:linear-gradient(135deg,#dc2626,#ef4444)}
+  .s-amber{background:linear-gradient(135deg,#d97706,#f59e0b)}
+  .s-slate{background:linear-gradient(135deg,#334155,#475569)}
+  .s-blue{background:linear-gradient(135deg,#1d4ed8,#3b82f6)}
+
+  /* tabelas */
+  .tbl-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0}
+  tbody tr:hover{background:#f8fafc}
+  .empty{color:var(--muted);font-style:italic;padding:18px;text-align:center}
+
+  /* relatório */
+  .report-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .report-row .grp{display:flex;flex-direction:column;gap:5px}
+  .report-row label{font-size:12px;color:var(--muted);font-weight:600}
+  .report-row input[type=date]{padding:9px 11px;border:2px solid var(--line);border-radius:10px;font-size:14px}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#0f172a;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;
+    opacity:0;pointer-events:none;transition:.25s;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.3);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* flash verde de confirmação de leitura por câmera */
+  .scan-flash{
+    position:fixed;inset:0;z-index:60;pointer-events:none;
+    background:rgba(22,163,74,.30);
+    display:flex;align-items:center;justify-content:center;
+    animation:flashfade .65s ease-out forwards;
+  }
+  .scan-flash .check{
+    width:120px;height:120px;border-radius:50%;background:#16a34a;color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:70px;font-weight:800;
+    box-shadow:0 0 0 12px rgba(22,163,74,.25);
+  }
+  @keyframes flashfade{0%{opacity:0;transform:scale(.85)}25%{opacity:1;transform:scale(1)}100%{opacity:0}}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="logo">QR</div>
+  <div>
+    <h1>Apontamento de Produção</h1>
+    <p>MVP — Leitura de QR Code · Produção / Scrap / Hold · Relatório Excel</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 1. LEITURA -->
+  <div class="card">
+    <h2>1 · Leitura / Apontamento <span class="sub">cole ou digite o conteúdo do QR Code</span></h2>
+    <div class="reader-row">
+      <textarea id="qrInput" placeholder="Ex.: B7C555017LR0A            12  M002320391"></textarea>
+      <button class="btn btn-blue" onclick="lerQR()">⌨ Ler texto</button>
+      <button class="btn btn-amber" id="btnCam" onclick="toggleCamera()">📷 Escanear com câmera</button>
+      <button class="btn btn-ghost" onclick="limparLeitura()">Limpar</button>
+    </div>
+
+    <!-- área da câmera (oculta até ativar) -->
+    <div id="scannerBox" style="display:none;margin-top:14px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <select id="camSelect" style="padding:9px 11px;border:2px solid var(--line);border-radius:10px;font-size:13px;max-width:100%"></select>
+        <button class="btn btn-red" onclick="pararCamera()">⏹ Parar câmera</button>
+        <span id="camStatus" style="font-size:12.5px;color:var(--muted)"></span>
+      </div>
+      <div id="reader" style="width:100%;max-width:420px;border:2px solid var(--line);border-radius:12px;overflow:hidden"></div>
+    </div>
+    <div class="samples">
+      Exemplos (clique para preencher):
+      <div id="sampleList"></div>
+    </div>
+  </div>
+
+  <!-- 2 + 3 + 4 + 5. DETALHES E AÇÕES -->
+  <div class="card" id="detailCard">
+    <h2>2 · Dados da Etiqueta</h2>
+
+    <div class="grid">
+      <div class="field"><div class="lbl">Origem</div><div class="val" id="dOrigem">—</div></div>
+      <div class="field"><div class="lbl">Item</div><div class="val" id="dItem">—</div></div>
+      <div class="field"><div class="lbl">Quantidade</div><div class="val" id="dQtd">—</div></div>
+      <div class="field"><div class="lbl">Ordem</div><div class="val" id="dOrdem">—</div></div>
+      <div class="field"><div class="lbl">Sequência</div><div class="val" id="dSeq">—</div></div>
+      <div class="field"><div class="lbl">Chave única</div><div class="val" id="dChave" style="font-size:13px">—</div></div>
+      <div class="field"><div class="lbl">Status atual</div><div class="val"><span id="dStatus" class="status-badge st-NOVA">NOVA</span></div></div>
+    </div>
+
+    <!-- avisos -->
+    <div id="alertHold" class="alert alert-hold"></div>
+    <div id="alertDup" class="alert alert-dup"></div>
+    <div id="alertInfo" class="alert alert-info"></div>
+
+    <!-- campo motivo scrap -->
+    <div id="scrapReasonBox">
+      <input id="scrapReason" type="text" placeholder="Motivo do scrap (opcional)" />
+    </div>
+
+    <h2 style="margin-top:20px">3 · Ações de Apontamento</h2>
+    <div class="actions" id="actionButtons">
+      <button class="btn btn-green"  id="btnProd"  onclick="apontar('PRODUCAO')">✔ Produção</button>
+      <button class="btn btn-red"    id="btnScrap" onclick="apontar('SCRAP')">✖ Scrap</button>
+      <button class="btn btn-amber"  id="btnHold"  onclick="apontar('HOLD')">⏸ Hold</button>
+    </div>
+  </div>
+
+  <!-- 6. DASHBOARD -->
+  <div class="card">
+    <h2>6 · Dashboard</h2>
+    <div class="cards">
+      <div class="stat s-green"><div class="n" id="kProd">0</div><div class="t">Produção aprovada</div></div>
+      <div class="stat s-red"><div class="n" id="kScrap">0</div><div class="t">Total scrap</div></div>
+      <div class="stat s-amber"><div class="n" id="kHold">0</div><div class="t">Total em hold</div></div>
+      <div class="stat s-slate"><div class="n" id="kEtq">0</div><div class="t">Etiquetas lidas</div></div>
+      <div class="stat s-blue"><div class="n" id="kLogs">0</div><div class="t">Logs gerados</div></div>
+    </div>
+  </div>
+
+  <!-- 7. TABELA ETIQUETAS -->
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">7 · Etiquetas Lidas</h2>
+      <button class="btn btn-ghost" onclick="resetTudo()">🗑 Zerar tudo</button>
+    </div>
+    <div class="tbl-wrap" style="margin-top:14px">
+      <table>
+        <thead><tr>
+          <th>Última mov.</th><th>Ordem</th><th>Item</th><th>Seq</th><th>Qtd</th>
+          <th>Status</th><th>Origem</th><th>Motivo scrap</th>
+        </tr></thead>
+        <tbody id="tbodyEtq"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 8. TABELA LOGS -->
+  <div class="card">
+    <h2>8 · Histórico de Logs</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Ordem</th>
+          <th>Item</th><th>Seq</th><th>Qtd</th><th>Observação</th>
+        </tr></thead>
+        <tbody id="tbodyLogs"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 9. RELATÓRIO EXCEL -->
+  <div class="card">
+    <h2>9 · Relatório Excel <span class="sub">filtrado por período (usa data dos logs)</span></h2>
+    <div class="report-row">
+      <div class="grp"><label>Data inicial</label><input type="date" id="dtIni" /></div>
+      <div class="grp"><label>Data final</label><input type="date" id="dtFim" /></div>
+      <button class="btn btn-blue" onclick="gerarExcel()">📊 Gerar Excel</button>
+      <button class="btn btn-ghost" onclick="limparFiltroData()">Limpar datas</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin:10px 0 0">
+      Deixe as datas em branco para incluir todos os logs. O arquivo é gerado com 3 abas: Resumo, Logs e Etiquetas.
+    </p>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   ESTADO EM MEMÓRIA  (persistido em localStorage p/ não perder ao recarregar)
+   - etiquetas: mapa por chave única -> dados + status
+   - logs: histórico de movimentações
+   ========================================================================= */
+const USUARIO = "operador.teste";              // usuário fictício
+const LS_KEY  = "mvp_apontamento_v1";
+
+let etiquetas = {};   // { chave: {origem,item,quantidade,ordem,sequencia,chave,status,motivoScrap,ultimaMov} }
+let logs = [];        // [{dataHora, usuario, acao, origem, ordem, item, sequencia, quantidade, statusFinal, obs}]
+let atual = null;     // etiqueta atualmente lida na tela
+let leituraHold = false;          // true quando a etiqueta lida estava em HOLD (aponta como normal)
+let apontamentoLiberado = false;  // true quando o operador confirmou reapontar etiqueta já apontada
+
+const SAMPLES = [
+  "B7C555017LR0A            12  M002320391",
+  "B7C555018LR0A            8   M002320392",
+  "B7C555019LR0A            5   M002320393",
+];
+
+/* ---------- persistência ---------- */
+function salvar(){
+  localStorage.setItem(LS_KEY, JSON.stringify({etiquetas, logs}));
+}
+function carregar(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){ const d = JSON.parse(raw); etiquetas = d.etiquetas||{}; logs = d.logs||[]; }
+  }catch(e){ console.warn("Falha ao carregar estado:", e); }
+}
+
+/* ---------- util ---------- */
+function agoraISO(){ return new Date().toISOString(); }
+function fmtData(iso){
+  const d = new Date(iso);
+  return d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+}
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove("show"), 2600);
+}
+
+/* =========================================================================
+   PARSER DO QR CODE
+   Padrão:  [origem 3][item]  <espaços>  [quantidade]  <espaços>  [ordem+sequencia]
+   Ex.:     B7C555017LR0A            12  M002320391
+            origem=B7C  item=555017LR0A  qtd=12  ordem=M00232039  seq=1
+   ========================================================================= */
+function parseQR(texto){
+  const limpo = (texto||"").trim().replace(/\s+/g," ");
+  if(!limpo) return null;
+  const partes = limpo.split(" ");
+  if(partes.length < 3) return null;
+
+  const bloco1 = partes[0];                 // B7C555017LR0A
+  const qtdStr = partes[1];                 // 12
+  const bloco3 = partes[2];                 // M002320391
+
+  if(bloco1.length < 4) return null;
+  const origem = bloco1.substring(0,3);     // 3 primeiros = origem/setor/centro
+  const item   = bloco1.substring(3);       // restante = part number
+
+  const quantidade = parseInt(qtdStr,10);
+  if(isNaN(quantidade)) return null;
+
+  if(bloco3.length < 2) return null;
+  const ordem     = bloco3.slice(0,-1);     // tudo menos o último char
+  const sequencia = bloco3.slice(-1);       // último char = sequência
+
+  const chave = `${ordem}-${item}-${sequencia}`;   // chave única
+  return {origem, item, quantidade, ordem, sequencia, chave};
+}
+
+/* =========================================================================
+   LEITURA
+   ========================================================================= */
+function lerQR(){
+  const dados = parseQR(document.getElementById("qrInput").value);
+  if(!dados){
+    toast("❌ Não foi possível interpretar o QR Code. Verifique o formato.");
+    return;
+  }
+  // etiqueta já existe? recupera status; senão cria como NOVA
+  let etq = etiquetas[dados.chave];
+  if(!etq){
+    etq = {...dados, status:"NOVA", motivoScrap:"", ultimaMov: agoraISO()};
+    etiquetas[dados.chave] = etq;
+    log("LEITURA", etq, "Etiqueta lida pela primeira vez");
+    salvar();
+  }
+  atual = etq;
+
+  leituraHold = false;
+  apontamentoLiberado = false;
+
+  if(etq.status==="HOLD"){
+    // Peça em HOLD: ao ser lida, comporta-se como peça NORMAL (botões liberados),
+    // sem conversão automática. Só ao clicar em Produção é que entra como PRODUZIDO_APOS_HOLD.
+    leituraHold = true;
+  }
+  else if(etq.status==="PRODUZIDA" || etq.status==="PRODUZIDO_APOS_HOLD" || etq.status==="SCRAP"){
+    // Já apontada (e não está em HOLD): avisa e pede confirmação antes de liberar reapontamento.
+    const tipo = etq.status==="SCRAP" ? "SCRAP" : "produção";
+    const ok = confirm(
+      "⚠ Esta etiqueta já foi apontada como "+tipo+".\n\n"+
+      "Deseja apontá-la NOVAMENTE? Isso somará de novo nos totais."
+    );
+    if(ok){
+      apontamentoLiberado = true;
+      log("REAPONTAMENTO", etq, "Operador confirmou novo apontamento de etiqueta já apontada");
+      salvar();
+      toast("⚠ Novo apontamento liberado — escolha a ação.");
+    }
+  }
+
+  renderDetalhe();
+  renderTudo();
+}
+
+function renderDetalhe(){
+  const card = document.getElementById("detailCard");
+  card.style.display = "block";
+  document.getElementById("dOrigem").textContent = atual.origem;
+  document.getElementById("dItem").textContent   = atual.item;
+  document.getElementById("dQtd").textContent    = atual.quantidade;
+  document.getElementById("dOrdem").textContent  = atual.ordem;
+  document.getElementById("dSeq").textContent    = atual.sequencia;
+  document.getElementById("dChave").textContent  = atual.chave;
+
+  const badge = document.getElementById("dStatus");
+  badge.textContent = atual.status;
+  badge.className = "status-badge st-" + atual.status;
+
+  // reset avisos / botões
+  ["alertHold","alertDup","alertInfo"].forEach(id=>{
+    const el=document.getElementById(id); el.classList.remove("show"); el.textContent="";
+  });
+  document.getElementById("scrapReasonBox").style.display="none";
+  document.getElementById("scrapReason").value="";
+  const btnProd=document.getElementById("btnProd"),
+        btnScrap=document.getElementById("btnScrap"),
+        btnHold=document.getElementById("btnHold");
+  // padrão: tudo habilitado
+  btnProd.disabled=btnScrap.disabled=btnHold.disabled=false;
+
+  const st = atual.status;
+  const jaApontada = (st==="PRODUZIDA" || st==="PRODUZIDO_APOS_HOLD" || st==="SCRAP");
+
+  if(leituraHold && st==="HOLD"){
+    // peça que estava em HOLD, lida agora: trata como NORMAL (botões liberados) + aviso
+    const a=document.getElementById("alertHold");
+    const desde = atual.dataHold ? (" desde "+fmtData(atual.dataHold)) : "";
+    a.textContent="⏸ Esta peça esteve em HOLD"+desde+". Aponte normalmente — ao clicar em Produção, entrará como \"Produzido após HOLD\".";
+    a.classList.add("show");
+    btnProd.disabled=btnScrap.disabled=btnHold.disabled=false;
+  }
+  else if(st==="HOLD"){
+    // etiqueta acabou de ser colocada em HOLD agora (botão Hold) — fica pendente
+    const a=document.getElementById("alertHold");
+    const desde = atual.dataHold ? (" desde "+fmtData(atual.dataHold)) : "";
+    a.textContent="⏸ Etiqueta colocada em HOLD"+desde+" — pendente de retrabalho. Ao ler novamente, poderá apontar a produção.";
+    a.classList.add("show");
+    btnProd.disabled=btnScrap.disabled=btnHold.disabled=true;
+  }
+  else if(jaApontada && apontamentoLiberado){
+    // operador confirmou reapontar: libera as ações
+    const a=document.getElementById("alertInfo");
+    a.textContent="⚠ Novo apontamento confirmado — a próxima ação somará novamente nos totais.";
+    a.classList.add("show");
+    btnProd.disabled=btnScrap.disabled=btnHold.disabled=false;
+  }
+  else if(jaApontada){
+    // já apontada e NÃO confirmado: bloqueia (o aviso/confirmação ocorre na leitura)
+    const a=document.getElementById("alertDup");
+    a.textContent = st==="SCRAP"
+      ? "⛔ Esta etiqueta já foi apontada como SCRAP."
+      : "⛔ Esta etiqueta já foi apontada como produção. Não será somada novamente.";
+    a.classList.add("show");
+    btnProd.disabled=btnScrap.disabled=btnHold.disabled=true;
+  }
+  else {
+    const a=document.getElementById("alertInfo");
+    a.textContent="ℹ Etiqueta pronta para apontamento. Escolha uma ação abaixo.";
+    a.classList.add("show");
+  }
+
+  // mostra campo de motivo quando o usuário for clicar em Scrap (sempre visível p/ facilitar)
+  if(!btnScrap.disabled){
+    document.getElementById("scrapReasonBox").style.display="block";
+  }
+}
+
+/* =========================================================================
+   AÇÕES DE APONTAMENTO
+   ========================================================================= */
+function log(acao, etq, obs){
+  logs.push({
+    dataHora: agoraISO(),
+    usuario: USUARIO,
+    acao,
+    origem: etq.origem,
+    ordem: etq.ordem,
+    item: etq.item,
+    sequencia: etq.sequencia,
+    quantidade: etq.quantidade,
+    statusFinal: etq.status,
+    obs: obs||""
+  });
+}
+
+function apontar(tipo){
+  if(!atual) return;
+  const eraHold = (atual.status==="HOLD");   // estava em HOLD antes deste apontamento?
+  const resumo = "\n\nItem "+atual.item+" • Ordem "+atual.ordem+" • Seq "+atual.sequencia+" • Qtd "+atual.quantidade;
+
+  if(tipo==="PRODUCAO"){
+    if(!confirm("Confirmar apontamento de PRODUÇÃO?"+(eraHold?" (peça veio de HOLD)":"")+resumo)) return;
+    if(eraHold){
+      const desde = atual.dataHold ? (" (esteve em HOLD desde "+fmtData(atual.dataHold)+")") : "";
+      atual.status="PRODUZIDO_APOS_HOLD";
+      atual.ultimaMov=agoraISO();
+      log("PRODUCAO_APOS_HOLD", atual, "Produzido após HOLD"+desde);
+      toast("✅ Produção (após HOLD) registrada: +"+atual.quantidade);
+    } else {
+      atual.status="PRODUZIDA";
+      atual.ultimaMov=agoraISO();
+      log("PRODUCAO", atual, "Apontado como produção aprovada");
+      toast("✔ Produção registrada: +"+atual.quantidade);
+    }
+    leituraHold=false;
+  }
+  else if(tipo==="SCRAP"){
+    const motivo=document.getElementById("scrapReason").value.trim();
+    if(!confirm("Confirmar apontamento de SCRAP?"+resumo+(motivo?("\nMotivo: "+motivo):""))) return;
+    atual.status="SCRAP";
+    atual.motivoScrap=motivo;
+    atual.ultimaMov=agoraISO();
+    log("SCRAP", atual, "Scrap"+(eraHold?" (peça vinha de HOLD)":"")+(motivo?(" — motivo: "+motivo):" (sem motivo informado)"));
+    toast("✖ Scrap registrado: +"+atual.quantidade);
+    leituraHold=false;
+  }
+  else if(tipo==="HOLD"){
+    if(!confirm("Confirmar envio para HOLD (pendente de retrabalho)?"+resumo)) return;
+    atual.status="HOLD";
+    atual.dataHold=agoraISO();                 // registra QUANDO entrou em hold
+    atual.ultimaMov=agoraISO();
+    log("HOLD", atual, "Etiqueta colocada em HOLD — pendente de retrabalho (refazer ciclo)");
+    toast("⏸ Etiqueta em HOLD (pendente de retrabalho)");
+    leituraHold=false;
+  }
+  salvar();
+  renderDetalhe();
+  renderTudo();
+}
+
+function limparLeitura(){
+  document.getElementById("qrInput").value="";
+  document.getElementById("detailCard").style.display="none";
+  atual=null;
+}
+
+/* =========================================================================
+   LEITURA POR CÂMERA (html5-qrcode)
+   - lista câmeras, inicia o scan e ao decodificar joga o texto no fluxo lerQR()
+   - evita leituras repetidas em sequência com um pequeno "cooldown"
+   ========================================================================= */
+let html5qr = null;           // instância do scanner
+let camRodando = false;
+let scanProcessando = false;  // trava enquanto processa a leitura e fecha a câmera
+
+async function toggleCamera(){
+  if(camRodando){ pararCamera(); return; }
+  if(typeof Html5Qrcode==="undefined"){ toast("Biblioteca de câmera não carregou (precisa de internet)."); return; }
+
+  document.getElementById("scannerBox").style.display="block";
+  const status=document.getElementById("camStatus");
+  status.textContent="Solicitando acesso à câmera...";
+
+  try{
+    const cams = await Html5Qrcode.getCameras();
+    if(!cams || cams.length===0){ status.textContent="Nenhuma câmera encontrada."; return; }
+
+    // popula o seletor de câmeras
+    const sel=document.getElementById("camSelect");
+    sel.innerHTML=cams.map(c=>`<option value="${c.id}">${c.label||("Câmera "+c.id.slice(0,6))}</option>`).join("");
+    sel.onchange=()=>{ if(camRodando){ pararCamera().then(()=>iniciarCamera(sel.value)); } };
+
+    // prefere a câmera traseira, se houver
+    const traseira = cams.find(c=>/back|rear|traseir|environment/i.test(c.label));
+    const idEscolhida = traseira ? traseira.id : cams[0].id;
+    sel.value=idEscolhida;
+    await iniciarCamera(idEscolhida);
+  }catch(e){
+    console.error(e);
+    status.textContent="Erro ao acessar a câmera. Verifique as permissões do navegador.";
+    toast("❌ Não foi possível acessar a câmera.");
+  }
+}
+
+async function iniciarCamera(camId){
+  scanProcessando = false;
+  html5qr = new Html5Qrcode("reader", { verbose:false });
+  const config = { fps:10, qrbox:{width:250,height:250}, aspectRatio:1.0 };
+  await html5qr.start(camId, config, onScanSuccess, ()=>{ /* erros de frame: ignorar */ });
+  camRodando = true;
+  document.getElementById("btnCam").textContent="📷 Câmera ligada";
+  document.getElementById("camStatus").textContent="Aponte o QR Code para a câmera...";
+}
+
+function flashLeitura(){
+  const f=document.createElement("div");
+  f.className="scan-flash";
+  f.innerHTML='<div class="check">✓</div>';
+  document.body.appendChild(f);
+  setTimeout(()=>f.remove(), 650);
+}
+function beepOk(){
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(); o.frequency.value=880; o.connect(ctx.destination);
+    o.start(); setTimeout(()=>{o.stop(); ctx.close();},120);
+  }catch(e){}
+}
+
+async function onScanSuccess(texto){
+  if(scanProcessando) return;     // ignora múltiplos frames enquanto processa/fecha
+  scanProcessando = true;
+
+  // 1) retorno visual + sonoro imediato
+  flashLeitura();
+  beepOk();
+  document.getElementById("camStatus").textContent = "✔ QR lido: " + texto;
+
+  // 2) fecha a câmera
+  await pararCamera();
+
+  // 3) seleciona a etiqueta (reaproveita todo o fluxo de leitura/validação)
+  document.getElementById("qrInput").value = texto;
+  lerQR();
+  toast("📷 QR Code capturado!");
+
+  scanProcessando = false;
+}
+
+async function pararCamera(){
+  if(html5qr && camRodando){
+    try{ await html5qr.stop(); await html5qr.clear(); }catch(e){}
+  }
+  camRodando=false;
+  html5qr=null;
+  document.getElementById("btnCam").textContent="📷 Escanear com câmera";
+  document.getElementById("scannerBox").style.display="none";
+}
+
+/* =========================================================================
+   TOTAIS / DASHBOARD / TABELAS
+   - Totais derivados dos LOGS (somam por movimentação efetiva)
+   ========================================================================= */
+function calcTotais(){
+  let prod=0, scrap=0, hold=0, posHold=0;
+  logs.forEach(l=>{
+    if(l.acao==="PRODUCAO") prod+=l.quantidade;
+    else if(l.acao==="PRODUCAO_APOS_HOLD"){ prod+=l.quantidade; posHold+=l.quantidade; }
+    else if(l.acao==="SCRAP") scrap+=l.quantidade;
+  });
+  // hold = etiquetas atualmente em HOLD
+  Object.values(etiquetas).forEach(e=>{ if(e.status==="HOLD") hold+=e.quantidade; });
+  return {prod, scrap, hold, posHold};
+}
+
+function renderTudo(){
+  const t=calcTotais();
+  document.getElementById("kProd").textContent=t.prod;
+  document.getElementById("kScrap").textContent=t.scrap;
+  document.getElementById("kHold").textContent=t.hold;
+  document.getElementById("kEtq").textContent=Object.keys(etiquetas).length;
+  document.getElementById("kLogs").textContent=logs.length;
+
+  // tabela etiquetas
+  const tb=document.getElementById("tbodyEtq");
+  const arr=Object.values(etiquetas).sort((a,b)=>b.ultimaMov.localeCompare(a.ultimaMov));
+  tb.innerHTML = arr.length? arr.map(e=>`
+    <tr>
+      <td>${fmtData(e.ultimaMov)}</td>
+      <td>${e.ordem}</td>
+      <td>${e.item}</td>
+      <td>${e.sequencia}</td>
+      <td>${e.quantidade}</td>
+      <td><span class="status-badge st-${e.status}">${e.status}</span></td>
+      <td>${e.origem}</td>
+      <td>${e.motivoScrap||"—"}</td>
+    </tr>`).join("") : `<tr><td colspan="8" class="empty">Nenhuma etiqueta lida ainda.</td></tr>`;
+
+  // tabela logs (mais recentes primeiro)
+  const lb=document.getElementById("tbodyLogs");
+  const ls=[...logs].reverse();
+  lb.innerHTML = ls.length? ls.map(l=>`
+    <tr>
+      <td>${fmtData(l.dataHora)}</td>
+      <td>${l.usuario}</td>
+      <td>${l.acao}</td>
+      <td>${l.ordem}</td>
+      <td>${l.item}</td>
+      <td>${l.sequencia}</td>
+      <td>${l.quantidade}</td>
+      <td>${l.obs}</td>
+    </tr>`).join("") : `<tr><td colspan="8" class="empty">Nenhum log gerado ainda.</td></tr>`;
+}
+
+/* =========================================================================
+   RELATÓRIO EXCEL (ExcelJS) — 3 abas, cabeçalho destacado, autofilter, largura
+   ========================================================================= */
+function filtrarLogsPorData(){
+  const ini=document.getElementById("dtIni").value;
+  const fim=document.getElementById("dtFim").value;
+  return logs.filter(l=>{
+    const d=l.dataHora.slice(0,10); // YYYY-MM-DD
+    if(ini && d<ini) return false;
+    if(fim && d>fim) return false;
+    return true;
+  });
+}
+
+async function gerarExcel(){
+  if(typeof ExcelJS==="undefined"){ toast("Biblioteca ExcelJS não carregou (precisa de internet)."); return; }
+  const ini=document.getElementById("dtIni").value || "(início)";
+  const fim=document.getElementById("dtFim").value || "(fim)";
+  const logsF=filtrarLogsPorData();
+
+  if(logsF.length===0){ toast("Nenhum log no período selecionado."); return; }
+
+  // etiquetas envolvidas nos logs filtrados
+  const chavesEnv=new Set(logsF.map(l=>`${l.ordem}-${l.item}-${l.sequencia}`));
+  const etqF=Object.values(etiquetas).filter(e=>chavesEnv.has(e.chave));
+
+  // totais do período (com base nos logs filtrados)
+  let prod=0,scrap=0,hold=0,posHold=0;
+  logsF.forEach(l=>{
+    if(l.acao==="PRODUCAO") prod+=l.quantidade;
+    else if(l.acao==="PRODUCAO_APOS_HOLD"){ prod+=l.quantidade; posHold+=l.quantidade; }
+    else if(l.acao==="SCRAP") scrap+=l.quantidade;
+    else if(l.acao==="HOLD") hold+=l.quantidade;
+  });
+
+  const wb=new ExcelJS.Workbook();
+  wb.creator="MVP Apontamento";
+  wb.created=new Date();
+
+  const headFill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1D4ED8"}};
+  const headFont={bold:true,color:{argb:"FFFFFFFF"},size:11};
+  const headAlign={vertical:"middle",horizontal:"center"};
+  function estilizarHeader(row){
+    row.eachCell(c=>{ c.fill=headFill; c.font=headFont; c.alignment=headAlign;
+      c.border={top:{style:"thin"},left:{style:"thin"},bottom:{style:"thin"},right:{style:"thin"}}; });
+    row.height=22;
+  }
+
+  /* ----- Aba 1: Resumo ----- */
+  const s1=wb.addWorksheet("Resumo");
+  s1.columns=[{width:34},{width:30}];
+  s1.mergeCells("A1:B1");
+  const tit=s1.getCell("A1");
+  tit.value="RELATÓRIO DE APONTAMENTO DE PRODUÇÃO";
+  tit.font={bold:true,size:14,color:{argb:"FF0F172A"}};
+  tit.alignment={horizontal:"center"};
+  s1.getRow(1).height=26;
+
+  const resumo=[
+    ["Período do relatório", `${ini}  a  ${fim}`],
+    ["Total produção aprovada", prod],
+    ["Total scrap", scrap],
+    ["Total hold", hold],
+    ["Total produzido após hold", posHold],
+    ["Total de etiquetas movimentadas", etqF.length],
+    ["Data/hora de geração", fmtData(agoraISO())],
+  ];
+  s1.addRow([]); // linha 2 vazia
+  resumo.forEach(([k,v])=>{
+    const r=s1.addRow([k,v]);
+    r.getCell(1).font={bold:true,color:{argb:"FF334155"}};
+    r.getCell(1).fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFF1F5F9"}};
+    r.eachCell(c=>c.border={top:{style:"thin",color:{argb:"FFCBD5E1"}},bottom:{style:"thin",color:{argb:"FFCBD5E1"}},left:{style:"thin",color:{argb:"FFCBD5E1"}},right:{style:"thin",color:{argb:"FFCBD5E1"}}});
+  });
+
+  /* ----- Aba 2: Logs ----- */
+  const s2=wb.addWorksheet("Logs");
+  s2.columns=[
+    {header:"Data/Hora",width:21},
+    {header:"Usuário",width:16},
+    {header:"Ação",width:20},
+    {header:"Origem",width:10},
+    {header:"Ordem",width:14},
+    {header:"Item",width:16},
+    {header:"Sequência",width:11},
+    {header:"Quantidade",width:12},
+    {header:"Status final",width:22},
+    {header:"Observação",width:48},
+  ];
+  estilizarHeader(s2.getRow(1));
+  logsF.forEach(l=>s2.addRow([
+    fmtData(l.dataHora), l.usuario, l.acao, l.origem, l.ordem,
+    l.item, l.sequencia, l.quantidade, l.statusFinal, l.obs
+  ]));
+  s2.autoFilter="A1:J1";
+  s2.views=[{state:"frozen",ySplit:1}];
+
+  /* ----- Aba 3: Etiquetas ----- */
+  const s3=wb.addWorksheet("Etiquetas");
+  s3.columns=[
+    {header:"Ordem",width:14},
+    {header:"Item",width:16},
+    {header:"Sequência",width:11},
+    {header:"Quantidade",width:12},
+    {header:"Origem",width:10},
+    {header:"Status atual",width:22},
+    {header:"Última movimentação",width:21},
+    {header:"Motivo scrap",width:40},
+  ];
+  estilizarHeader(s3.getRow(1));
+  etqF.forEach(e=>s3.addRow([
+    e.ordem, e.item, e.sequencia, e.quantidade, e.origem,
+    e.status, fmtData(e.ultimaMov), e.motivoScrap||""
+  ]));
+  s3.autoFilter="A1:H1";
+  s3.views=[{state:"frozen",ySplit:1}];
+
+  // nome do arquivo
+  const dIni=document.getElementById("dtIni").value || "inicio";
+  const dFim=document.getElementById("dtFim").value || "fim";
+  const nome=`relatorio_apontamento_${dIni}_a_${dFim}.xlsx`;
+
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=nome;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("📊 Excel gerado: "+nome);
+}
+
+function limparFiltroData(){
+  document.getElementById("dtIni").value="";
+  document.getElementById("dtFim").value="";
+}
+
+/* =========================================================================
+   RESET
+   ========================================================================= */
+function resetTudo(){
+  if(!confirm("Zerar TODAS as etiquetas e logs em memória?")) return;
+  etiquetas={}; logs=[]; atual=null;
+  localStorage.removeItem(LS_KEY);
+  limparLeitura();
+  renderTudo();
+  toast("Tudo zerado.");
+}
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+function initSamples(){
+  const box=document.getElementById("sampleList");
+  box.innerHTML=SAMPLES.map(s=>`<code onclick="usarSample(this)">${s.replace(/ /g,"&nbsp;")}</code>`).join("");
+}
+function usarSample(el){
+  document.getElementById("qrInput").value=el.textContent.replace(/ /g," ");
+  toast("Exemplo preenchido — clique em Ler QR Code.");
+}
+
+carregar();
+initSamples();
+renderTudo();
+// preenche datas do filtro com hoje por conveniência
+(function(){ const hoje=new Date().toISOString().slice(0,10);
+  document.getElementById("dtIni").value=hoje; document.getElementById("dtFim").value=hoje; })();
+</script>
+</body>
+</html>
