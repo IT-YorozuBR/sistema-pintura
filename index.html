@@ -3,587 +3,889 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Apontamento de Produção — Leitura QR Code</title>
-<!-- ExcelJS para gerar Excel com formatação (cabeçalho, largura, filtros) -->
+<title>Apontamento de Produção</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-<!-- html5-qrcode: leitura real de QR Code pela câmera -->
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
 <style>
-  :root{
-    --bg:#0f172a;        /* fundo geral */
-    --panel:#ffffff;
-    --ink:#1e293b;
-    --muted:#64748b;
-    --line:#e2e8f0;
-    --green:#16a34a;
-    --green-d:#15803d;
-    --red:#dc2626;
-    --red-d:#b91c1c;
-    --amber:#f59e0b;
-    --amber-d:#d97706;
-    --blue:#2563eb;
-    --blue-d:#1d4ed8;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;
-    font-family:"Segoe UI",Roboto,Arial,sans-serif;
-    background:linear-gradient(180deg,#0f172a 0,#1e293b 240px,#f1f5f9 240px,#f1f5f9 100%);
-    color:var(--ink);
-    min-height:100vh;
-  }
-  header.app{
-    color:#fff;
-    padding:22px 28px 10px;
-    display:flex;align-items:center;gap:14px;
-  }
-  header.app .logo{
-    width:42px;height:42px;border-radius:9px;
-    background:#38bdf8;display:flex;align-items:center;justify-content:center;
-    font-weight:800;font-size:20px;color:#0f172a;
-  }
-  header.app h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.3px}
-  header.app p{margin:2px 0 0;font-size:13px;color:#94a3b8}
-  .wrap{max-width:1200px;margin:0 auto;padding:0 20px 60px}
-  .card{
-    background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:20px;box-shadow:0 4px 14px rgba(15,23,42,.06);margin-bottom:20px;
-  }
-  .card h2{margin:0 0 14px;font-size:16px;color:#0f172a}
-  .card h2 .sub{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
+:root{
+  --bg:#f1f5f9; --panel:#ffffff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0;
+  --blue:#1e3a8a; --blue-2:#2563eb; --blue-d:#1d4ed8;
+  --green:#16a34a; --green-d:#15803d;
+  --red:#dc2626; --red-d:#b91c1c;
+  --amber:#d97706; --amber-d:#b45309;
+}
+*{box-sizing:border-box}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+html{font-size:16px}
+body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+button, input, select, textarea{font-family:inherit}
+:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
 
-  /* leitura */
-  .reader-row{display:flex;gap:10px;flex-wrap:wrap}
-  textarea#qrInput{
-    flex:1;min-width:280px;min-height:54px;resize:vertical;
-    padding:12px 14px;font-size:15px;font-family:"Consolas",monospace;
-    border:2px solid var(--line);border-radius:10px;outline:none;
-  }
-  textarea#qrInput:focus{border-color:var(--blue)}
-  .btn{
-    border:none;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:700;
-    cursor:pointer;color:#fff;transition:.12s;white-space:nowrap;
-  }
-  .btn:hover{filter:brightness(1.06)}
-  .btn:active{transform:translateY(1px)}
-  .btn-blue{background:var(--blue)} .btn-blue:hover{background:var(--blue-d)}
-  .btn-green{background:var(--green)} .btn-green:hover{background:var(--green-d)}
-  .btn-red{background:var(--red)} .btn-red:hover{background:var(--red-d)}
-  .btn-amber{background:var(--amber)} .btn-amber:hover{background:var(--amber-d)}
-  .btn-gray{background:#475569}
-  .btn-ghost{background:#fff;color:#334155;border:1px solid var(--line)}
-  .btn[disabled]{opacity:.45;cursor:not-allowed;filter:none}
+/* topbar */
+.topbar{
+  background:var(--blue);color:#fff;padding:10px 20px;display:flex;align-items:center;
+  justify-content:space-between;gap:14px;flex-wrap:wrap;min-height:56px;
+}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar .logo{width:38px;height:38px;border-radius:9px;background:#38bdf8;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#0f172a;flex-shrink:0}
+.topbar h1{font-size:16px;margin:0;font-weight:800}
+.topbar-title p{margin:2px 0 0;font-size:12px;color:#c7d2fe}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.clock{font-size:13px;color:#e2e8f0;font-weight:600}
+.turno-select{padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:13px;font-weight:600}
+.turno-select option{color:#0f172a}
+.local-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:rgba(255,255,255,.15);padding:6px 10px;border-radius:999px;font-weight:600}
+.local-badge svg{width:14px;height:14px}
 
-  .samples{margin-top:12px;font-size:12px;color:var(--muted)}
-  .samples code{
-    display:inline-block;background:#f1f5f9;border:1px solid var(--line);
-    padding:5px 9px;border-radius:7px;margin:4px 6px 0 0;cursor:pointer;
-    font-family:"Consolas",monospace;color:#334155;
-  }
-  .samples code:hover{background:#e2e8f0}
+/* shell / navegação */
+.shell{display:flex;min-height:calc(100vh - 56px)}
+.sidebar{
+  width:210px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);
+  padding:16px 10px;display:flex;flex-direction:column;gap:4px;
+}
+.nav-btn{
+  display:flex;align-items:center;gap:10px;padding:11px 14px;border:none;background:none;
+  border-radius:10px;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;text-align:left;
+}
+.nav-btn svg{width:19px;height:19px}
+.nav-btn:hover{background:#f1f5f9;color:var(--ink)}
+.nav-btn.active{background:#eef2ff;color:var(--blue)}
+.content{flex:1;min-width:0;padding:22px 24px 90px}
+.view{display:none}
+.view.active{display:block}
+.view-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap}
+.view-header h2{margin:0;font-size:20px;font-weight:800}
 
-  /* detalhes etiqueta */
-  #detailCard{display:none}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-  .field{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-  .field .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
-  .field .val{font-size:16px;font-weight:700;margin-top:3px;word-break:break-all}
+/* bottom nav (mobile) */
+.bottom-nav{
+  display:none;position:fixed;left:0;right:0;bottom:0;background:var(--panel);
+  border-top:1px solid var(--line);justify-content:space-around;padding:6px 4px;z-index:40;
+}
+.bottom-nav .nav-btn{flex-direction:column;gap:2px;font-size:11px;padding:6px 8px;flex:1}
 
-  .status-badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700}
-  .st-NOVA{background:#e0e7ff;color:#3730a3}
-  .st-PRODUZIDA{background:#dcfce7;color:#166534}
-  .st-PRODUZIDO_APOS_HOLD{background:#dcfce7;color:#166534}
-  .st-SCRAP{background:#fee2e2;color:#991b1b}
-  .st-HOLD{background:#fef3c7;color:#92400e}
+@media (max-width:900px){
+  .sidebar{display:none}
+  .bottom-nav{display:flex}
+  .content{padding:16px 14px 84px}
+}
 
-  .actions{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+/* cards genéricos */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(15,23,42,.05);margin-bottom:18px}
+.card h3{margin:0 0 12px;font-size:15px;font-weight:800}
+.muted-txt{font-size:13px;color:var(--muted);margin:0 0 10px}
 
-  .alert{padding:14px 16px;border-radius:10px;margin-top:16px;font-size:14px;font-weight:600;display:none}
-  .alert.show{display:block}
-  .alert-hold{background:#fffbeb;border:2px solid var(--amber);color:#92400e}
-  .alert-dup{background:#fef2f2;border:2px solid var(--red);color:#991b1b}
-  .alert-info{background:#eff6ff;border:2px solid var(--blue);color:#1e40af}
+/* botões */
+.btn{
+  border:none;border-radius:10px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;
+  color:#fff;transition:.12s;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn svg{width:17px;height:17px;flex-shrink:0}
+.btn:hover{filter:brightness(1.07)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.5;cursor:not-allowed;filter:none}
+.btn-blue{background:var(--blue-2)} .btn-blue:hover{background:var(--blue-d)}
+.btn-green{background:var(--green)} .btn-green:hover{background:var(--green-d)}
+.btn-red{background:var(--red)} .btn-red:hover{background:var(--red-d)}
+.btn-amber{background:var(--amber)} .btn-amber:hover{background:var(--amber-d)}
+.btn-ghost{background:#fff;color:#334155;border:1px solid var(--line)}
+.btn-lg{min-height:56px;padding:14px 18px;font-size:15px;border-radius:12px}
+.btn-scrap{border:2px solid #7f1d1d}
 
-  #scrapReasonBox{display:none;margin-top:12px}
-  #scrapReasonBox input{
-    width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:10px;font-size:14px;
-  }
+/* tela de apontamento */
+.apontamento-wrap{max-width:560px;margin:0 auto}
+.idle-screen{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:36px 16px}
+.idle-icon{width:72px;height:72px;color:var(--blue-2);margin-bottom:6px}
+.idle-screen h2{margin:0;font-size:20px}
+.read-field-row{width:100%;margin:14px 0}
+#qrInput{
+  width:100%;padding:16px 16px;font-size:16px;font-family:"Consolas",monospace;
+  border:2px solid var(--line);border-radius:12px;outline:none;text-align:center;
+}
+#qrInput:focus{border-color:var(--blue-2)}
+.idle-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;width:100%;margin-top:4px}
+.idle-actions .btn{flex:1;min-width:180px}
+.scanner-box{width:100%;margin-top:16px;text-align:left}
+.scanner-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.scanner-controls select{padding:9px 11px;border:2px solid var(--line);border-radius:10px;font-size:13px;max-width:100%}
+.reader-box{width:100%;max-width:420px;border:2px solid var(--line);border-radius:12px;overflow:hidden;margin:0 auto}
+.last-mov-info{font-size:12.5px;color:var(--muted);margin-top:18px;min-height:16px}
+.link-toggle{background:none;border:none;color:var(--blue-2);font-size:13px;font-weight:700;cursor:pointer;text-decoration:underline;padding:6px 0;display:inline-flex;align-items:center;gap:6px;margin-top:8px}
+.link-toggle svg{width:14px;height:14px}
+.demo-box{width:100%;margin-top:10px;padding:12px;background:#f8fafc;border:1px dashed var(--line);border-radius:10px}
+.demo-box code{display:inline-block;background:#fff;border:1px solid var(--line);padding:5px 9px;border-radius:7px;margin:4px 6px 0 0;cursor:pointer;font-family:"Consolas",monospace;font-size:12px}
 
-  /* dashboard */
-  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
-  .stat{border-radius:14px;padding:16px 18px;color:#fff;position:relative;overflow:hidden}
-  .stat .n{font-size:30px;font-weight:800;line-height:1}
-  .stat .t{font-size:12.5px;margin-top:6px;opacity:.92;font-weight:600}
-  .s-green{background:linear-gradient(135deg,#16a34a,#22c55e)}
-  .s-red{background:linear-gradient(135deg,#dc2626,#ef4444)}
-  .s-amber{background:linear-gradient(135deg,#d97706,#f59e0b)}
-  .s-slate{background:linear-gradient(135deg,#334155,#475569)}
-  .s-blue{background:linear-gradient(135deg,#1d4ed8,#3b82f6)}
+/* card da etiqueta lida */
+.etiqueta-card{max-width:560px;margin:0 auto}
+.qty-hero{background:var(--blue);color:#fff;border-radius:14px;padding:20px;margin-bottom:16px;text-align:center}
+.qty-hero-lbl{font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:.85;font-weight:700}
+.qty-hero-val{font-size:52px;font-weight:800;line-height:1.05;margin-top:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:8px}
+.field{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.field .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+.field .val{font-size:16px;font-weight:800;margin-top:3px;word-break:break-all}
+.mais-detalhes{margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:4px 12px}
+.mais-detalhes summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);padding:8px 0}
+.mais-detalhes .details-body{padding:4px 0 12px}
 
-  /* tabelas */
-  .tbl-wrap{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
-  th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0}
-  tbody tr:hover{background:#f8fafc}
-  .empty{color:var(--muted);font-style:italic;padding:18px;text-align:center}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:800}
+.status-badge svg{width:14px;height:14px}
+.st-NOVA{background:#e0e7ff;color:#3730a3}
+.st-PRODUZIDA{background:#dcfce7;color:#166534}
+.st-PRODUZIDO_APOS_HOLD{background:#dcfce7;color:#166534}
+.st-SCRAP{background:#fee2e2;color:#991b1b}
+.st-HOLD{background:#fef3c7;color:#92400e}
 
-  /* relatório */
-  .report-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
-  .report-row .grp{display:flex;flex-direction:column;gap:5px}
-  .report-row label{font-size:12px;color:var(--muted);font-weight:600}
-  .report-row input[type=date]{padding:9px 11px;border:2px solid var(--line);border-radius:10px;font-size:14px}
+.alert{padding:14px 16px;border-radius:10px;margin:14px 0;font-size:14px;font-weight:600}
+.alert strong{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:14px}
+.alert-hold{background:#fffbeb;border:2px solid var(--amber);color:#92400e}
+.alert-dup{background:#fef2f2;border:2px solid var(--red);color:#991b1b}
+.actions-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 
-  .toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
-  .toast{
-    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
-    background:#0f172a;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;
-    opacity:0;pointer-events:none;transition:.25s;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.3);
-  }
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.actions-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+@media (max-width:640px){ .actions-grid{grid-template-columns:1fr} .idle-actions{flex-direction:column} .idle-actions .btn{width:100%} }
 
-  /* flash verde de confirmação de leitura por câmera */
-  .scan-flash{
-    position:fixed;inset:0;z-index:60;pointer-events:none;
-    background:rgba(22,163,74,.30);
-    display:flex;align-items:center;justify-content:center;
-    animation:flashfade .65s ease-out forwards;
-  }
-  .scan-flash .check{
-    width:120px;height:120px;border-radius:50%;background:#16a34a;color:#fff;
-    display:flex;align-items:center;justify-content:center;font-size:70px;font-weight:800;
-    box-shadow:0 0 0 12px rgba(22,163,74,.25);
-  }
-  @keyframes flashfade{0%{opacity:0;transform:scale(.85)}25%{opacity:1;transform:scale(1)}100%{opacity:0}}
+/* filtros */
+.filtros-card .filtros-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.filtros-row input, .filtros-row select{padding:9px 11px;border:2px solid var(--line);border-radius:10px;font-size:13.5px}
+.filtros-row .grp{display:flex;flex-direction:column;gap:5px}
+.filtros-row .grp label{font-size:12px;color:var(--muted);font-weight:700}
+
+/* tabelas */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#f8fafc}
+.empty{color:var(--muted);font-style:italic;padding:18px;text-align:center;cursor:default}
+.paginacao{display:flex;align-items:center;gap:12px;justify-content:center;margin-top:14px;font-size:13px;color:var(--muted)}
+
+/* kpis */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px}
+.stat{
+  display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:16px 18px;box-shadow:0 2px 8px rgba(15,23,42,.05);
+}
+.stat-icon{width:44px;height:44px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.stat-icon svg{width:21px;height:21px}
+.stat .n{font-size:25px;font-weight:800;line-height:1.1;color:var(--ink)}
+.stat .t{font-size:12px;margin-top:3px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.s-green .stat-icon{background:#dcfce7;color:#15803d}
+.s-red .stat-icon{background:#fee2e2;color:#b91c1c}
+.s-amber .stat-icon{background:#fef3c7;color:#b45309}
+.s-blue .stat-icon{background:#dbeafe;color:#1d4ed8}
+.s-slate .stat-icon{background:#e2e8f0;color:#334155}
+
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:18px;align-items:stretch}
+.chart-card{display:flex;flex-direction:column}
+.chart-card-head{margin-bottom:14px}
+.chart-card-head h3{margin:0;display:flex;align-items:center;gap:8px}
+.chart-card-head h3 svg{width:17px;height:17px;color:var(--blue-2);flex-shrink:0}
+.chart-card-head p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}
+.chart-wrap{position:relative;height:260px;flex:1}
+
+.card-head-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.card-head-row h3{margin:0;display:flex;align-items:center;gap:8px}
+.card-head-row h3 svg{width:17px;height:17px;color:var(--blue-2);flex-shrink:0}
+
+/* modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.show{display:flex}
+.modal-dialog{background:#fff;border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-dialog h3{margin:0 0 14px;font-size:17px}
+.modal-resumo{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:16px}
+.modal-resumo div{display:flex;flex-direction:column;font-size:13px}
+.modal-resumo span{color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:700}
+.form-grp{margin-bottom:14px}
+.form-grp label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:5px}
+.form-grp input, .form-grp select, .form-grp textarea{width:100%;padding:11px 12px;border:2px solid var(--line);border-radius:10px;font-size:14.5px;outline:none}
+.form-grp input:focus, .form-grp select:focus, .form-grp textarea:focus{border-color:var(--blue-2)}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}
+@media (max-width:640px){ .modal-dialog{width:100%;max-width:100%} .modal-actions{justify-content:stretch} .modal-actions .btn{flex:1} }
+
+/* timeline */
+.timeline{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.timeline-item{display:flex;gap:10px;font-size:13px;border-left:3px solid var(--blue-2);padding-left:10px}
+.timeline-hora{font-weight:800;color:var(--blue);flex-shrink:0;width:48px}
+.timeline-txt{color:var(--ink)}
+
+/* feedback de sucesso */
+.success-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.4)}
+.success-box{background:#fff;border-radius:18px;padding:32px 40px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35);border-top:6px solid var(--green)}
+.success-box.success-red{border-top-color:var(--red)}
+.success-box.success-amber{border-top-color:var(--amber)}
+.success-box.success-blue{border-top-color:var(--blue-2)}
+.success-icon{width:64px;height:64px;color:var(--green)}
+.success-red .success-icon{color:var(--red)}
+.success-amber .success-icon{color:var(--amber)}
+.success-blue .success-icon{color:var(--blue-2)}
+.success-title{font-size:20px;font-weight:800;margin-top:10px}
+.success-sub{font-size:15px;color:var(--muted);margin-top:4px;font-weight:600}
+
+/* toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:#0f172a;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;
+  opacity:0;pointer-events:none;transition:.25s;z-index:150;box-shadow:0 8px 24px rgba(0,0,0,.3);max-width:90vw;text-align:center;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
-<header class="app">
-  <div class="logo">QR</div>
-  <div>
-    <h1>Apontamento de Produção</h1>
-    <p>MVP — Leitura de QR Code · Produção / Scrap / Hold · Relatório Excel</p>
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo">QR</div>
+    <div class="topbar-title">
+      <h1>Apontamento de Produção</h1>
+      <p id="topbarSub">Operador: operador.teste · Turno 1 · Dados armazenados localmente</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span id="relogio" class="clock"></span>
+    <select id="selTurno" class="turno-select" aria-label="Turno"></select>
+    <span class="local-badge"><i data-lucide="hard-drive"></i> Local</span>
   </div>
 </header>
 
-<div class="wrap">
+<div class="shell">
+  <nav class="sidebar">
+    <button class="nav-btn active" data-nav="apontamento" onclick="switchView('apontamento')"><i data-lucide="scan-line"></i><span>Apontamento</span></button>
+    <button class="nav-btn" data-nav="etiquetas" onclick="switchView('etiquetas')"><i data-lucide="tags"></i><span>Etiquetas</span></button>
+    <button class="nav-btn" data-nav="dashboard" onclick="switchView('dashboard')"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></button>
+    <button class="nav-btn" data-nav="relatorios" onclick="switchView('relatorios')"><i data-lucide="file-spreadsheet"></i><span>Relatórios</span></button>
+  </nav>
 
-  <!-- 1. LEITURA -->
-  <div class="card">
-    <h2>1 · Leitura / Apontamento <span class="sub">cole ou digite o conteúdo do QR Code</span></h2>
-    <div class="reader-row">
-      <textarea id="qrInput" placeholder="Ex.: B7C555017LR0A            12  M002320391"></textarea>
-      <button class="btn btn-blue" onclick="lerQR()">⌨ Ler texto</button>
-      <button class="btn btn-amber" id="btnCam" onclick="toggleCamera()">📷 Escanear com câmera</button>
-      <button class="btn btn-ghost" onclick="limparLeitura()">Limpar</button>
-    </div>
+  <main class="content">
 
-    <!-- área da câmera (oculta até ativar) -->
-    <div id="scannerBox" style="display:none;margin-top:14px">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        <select id="camSelect" style="padding:9px 11px;border:2px solid var(--line);border-radius:10px;font-size:13px;max-width:100%"></select>
-        <button class="btn btn-red" onclick="pararCamera()">⏹ Parar câmera</button>
-        <span id="camStatus" style="font-size:12.5px;color:var(--muted)"></span>
+    <!-- VIEW: APONTAMENTO -->
+    <section id="view-apontamento" class="view active">
+      <div class="apontamento-wrap">
+
+        <div id="idleScreen" class="idle-screen">
+          <i data-lucide="qr-code" class="idle-icon"></i>
+          <h2>Aguardando leitura</h2>
+          <p class="muted-txt">Use o leitor físico ou a câmera para ler a etiqueta.</p>
+
+          <div class="read-field-row">
+            <label for="qrInput" class="sr-only">Código da etiqueta</label>
+            <input id="qrInput" type="text" placeholder="Aponte o leitor ou digite o código e pressione Enter" autocomplete="off" />
+          </div>
+
+          <div class="idle-actions">
+            <button class="btn btn-blue btn-lg" id="btnCam" onclick="toggleCamera()"><i data-lucide="camera"></i><span>Escanear com câmera</span></button>
+            <button class="btn btn-ghost btn-lg" onclick="focusReadInput()"><i data-lucide="keyboard"></i><span>Digitar código</span></button>
+          </div>
+
+          <div id="scannerBox" class="scanner-box" style="display:none">
+            <div class="scanner-controls">
+              <select id="camSelect" aria-label="Selecionar câmera"></select>
+              <button class="btn btn-red" onclick="pararCamera()"><i data-lucide="square"></i><span>Parar câmera</span></button>
+              <span id="camStatus" class="muted-txt"></span>
+            </div>
+            <div id="reader" class="reader-box"></div>
+          </div>
+
+          <p class="last-mov-info" id="lastMovInfo"></p>
+
+          <button class="link-toggle" onclick="toggleDemo()"><i data-lucide="flask-conical"></i> Modo demonstração</button>
+          <div id="demoBox" class="demo-box" style="display:none">
+            <p class="muted-txt" style="margin-bottom:6px">Códigos de exemplo (clique para preencher):</p>
+            <div id="sampleList"></div>
+          </div>
+        </div>
+
+        <div id="etiquetaCard" class="card etiqueta-card" style="display:none">
+          <div class="qty-hero" id="qtyHero">
+            <div class="qty-hero-lbl" id="qtyHeroLbl">Quantidade de peças</div>
+            <div class="qty-hero-val" id="dQtd">—</div>
+          </div>
+
+          <div class="grid">
+            <div class="field"><div class="lbl">Item</div><div class="val" id="dItem">—</div></div>
+            <div class="field"><div class="lbl">Ordem</div><div class="val" id="dOrdem">—</div></div>
+            <div class="field"><div class="lbl">Sequência</div><div class="val" id="dSeq">—</div></div>
+            <div class="field"><div class="lbl">Origem</div><div class="val" id="dOrigem">—</div></div>
+            <div class="field"><div class="lbl">Situação</div><div class="val" id="dStatusWrap">—</div></div>
+          </div>
+
+          <div class="grid" id="dBaldesGrid" style="display:none">
+            <div class="field"><div class="lbl">Produzida</div><div class="val" id="dProduzida">0</div></div>
+            <div class="field"><div class="lbl">Em Hold</div><div class="val" id="dHold">0</div></div>
+            <div class="field"><div class="lbl">Scrap</div><div class="val" id="dScrap">0</div></div>
+          </div>
+
+          <details class="mais-detalhes">
+            <summary>Mais detalhes</summary>
+            <div class="details-body">
+              <div class="field"><div class="lbl">Chave única</div><div class="val" id="dChave">—</div></div>
+            </div>
+          </details>
+
+          <div id="holdAlert" class="alert alert-hold" style="display:none"></div>
+
+          <!-- 1ª leitura: confirmar quantidade -->
+          <div id="actionsConfirmar" class="actions-grid" style="display:none;grid-template-columns:1fr">
+            <div class="form-grp" style="margin:0">
+              <label for="inpQtdConfirmar">Quantidade produzida</label>
+              <input id="inpQtdConfirmar" type="number" min="1" step="1" />
+            </div>
+            <button class="btn btn-green btn-lg" onclick="acaoConfirmarQuantidade()"><i data-lucide="check-circle-2"></i><span>Confirmar produção</span></button>
+          </div>
+
+          <!-- 2ª e 3ª leituras (split Scrap/Hold e resolução de Hold) acontecem em modal, disparadas por avancarFluxoLeitura() -->
+
+          <div id="jaApontadaBox" class="alert alert-dup" style="display:none">
+            <div id="jaApontadaTxt"></div>
+            <div class="actions-row">
+              <button class="btn btn-ghost" onclick="voltarParaLeitura()"><i data-lucide="arrow-left"></i><span>Voltar</span></button>
+            </div>
+          </div>
+
+        </div>
       </div>
-      <div id="reader" style="width:100%;max-width:420px;border:2px solid var(--line);border-radius:12px;overflow:hidden"></div>
-    </div>
-    <div class="samples">
-      Exemplos (clique para preencher):
-      <div id="sampleList"></div>
-    </div>
+    </section>
+
+    <!-- VIEW: ETIQUETAS -->
+    <section id="view-etiquetas" class="view">
+      <div class="view-header">
+        <h2>Etiquetas</h2>
+        <button class="btn btn-ghost" onclick="resetTudo()"><i data-lucide="trash-2"></i><span>Zerar tudo</span></button>
+      </div>
+      <div class="card filtros-card">
+        <div class="filtros-row">
+          <div class="grp"><label for="fltBusca">Buscar</label><input id="fltBusca" type="text" placeholder="Item, ordem ou chave" oninput="renderEtiquetasView()" /></div>
+          <div class="grp"><label for="fltStatus">Situação</label>
+            <select id="fltStatus" onchange="renderEtiquetasView()">
+              <option value="">Todas as situações</option>
+              <option value="EM_PRODUCAO">Em produção</option>
+              <option value="COM_HOLD">Aguardando decisão de Hold</option>
+              <option value="FINALIZADA">Finalizada (100% Scrap)</option>
+            </select>
+          </div>
+          <div class="grp"><label for="fltDataIni">De</label><input type="date" id="fltDataIni" onchange="renderEtiquetasView()" /></div>
+          <div class="grp"><label for="fltDataFim">Até</label><input type="date" id="fltDataFim" onchange="renderEtiquetasView()" /></div>
+          <div class="grp"><label for="fltItem">Item</label><input id="fltItem" type="text" oninput="renderEtiquetasView()" /></div>
+          <div class="grp"><label for="fltOrdem">Ordem</label><input id="fltOrdem" type="text" oninput="renderEtiquetasView()" /></div>
+          <button class="btn btn-ghost" onclick="limparFiltrosEtiquetas()">Limpar filtros</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Situação</th><th>Item</th><th>Ordem</th><th>Total</th><th>Produzida</th><th>Hold</th><th>Scrap</th><th>Última movimentação</th><th>Operador</th></tr></thead>
+            <tbody id="tbodyEtq"></tbody>
+          </table>
+        </div>
+        <div class="paginacao" id="paginacaoEtq"></div>
+      </div>
+    </section>
+
+    <!-- VIEW: DASHBOARD -->
+    <section id="view-dashboard" class="view">
+      <div class="view-header">
+        <div>
+          <h2>Dashboard</h2>
+          <p class="muted-txt" style="margin:4px 0 0">Visão geral da produção, hold e scrap</p>
+        </div>
+      </div>
+      <div class="card filtros-card">
+        <div class="filtros-row">
+          <div class="grp"><label for="dashDataIni">De</label><input type="date" id="dashDataIni" onchange="renderDashboard()" /></div>
+          <div class="grp"><label for="dashDataFim">Até</label><input type="date" id="dashDataFim" onchange="renderDashboard()" /></div>
+          <div class="grp"><label for="dashTurno">Turno</label>
+            <select id="dashTurno" onchange="renderDashboard()"><option value="">Todos</option><option>Turno 1</option><option>Turno 2</option><option>Turno 3</option></select>
+          </div>
+          <div class="grp"><label for="dashItem">Item</label><input id="dashItem" type="text" oninput="renderDashboard()" /></div>
+          <div class="grp"><label for="dashOrdem">Ordem</label><input id="dashOrdem" type="text" oninput="renderDashboard()" /></div>
+          <div class="grp"><label for="dashOrigem">Origem</label><input id="dashOrigem" type="text" oninput="renderDashboard()" /></div>
+          <button class="btn btn-ghost" onclick="limparFiltrosDashboard()"><i data-lucide="filter-x"></i><span>Limpar filtros</span></button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="stat s-green"><div class="stat-icon"><i data-lucide="check-circle-2"></i></div><div><div class="n" id="kProd">0</div><div class="t">Produzido</div></div></div>
+        <div class="stat s-red"><div class="stat-icon"><i data-lucide="x-circle"></i></div><div><div class="n" id="kScrap">0</div><div class="t">Scrap</div></div></div>
+        <div class="stat s-amber"><div class="stat-icon"><i data-lucide="pause-circle"></i></div><div><div class="n" id="kHold">0</div><div class="t">Em Hold</div></div></div>
+        <div class="stat s-blue"><div class="stat-icon"><i data-lucide="percent"></i></div><div><div class="n" id="kTaxaScrap">0%</div><div class="t">Taxa de Scrap</div></div></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="card chart-card">
+          <div class="chart-card-head">
+            <h3><i data-lucide="bar-chart-3"></i>Produção por horário</h3>
+            <p>Peças confirmadas ou liberadas do Hold, por hora do dia</p>
+          </div>
+          <div class="chart-wrap"><canvas id="chartProducaoHora"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <div class="chart-card-head">
+            <h3><i data-lucide="pie-chart"></i>Scrap por motivo</h3>
+            <p>Distribuição das peças enviadas para Scrap</p>
+          </div>
+          <div class="chart-wrap"><canvas id="chartScrapMotivo"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head-row"><h3><i data-lucide="pause-circle"></i>Etiquetas em Hold</h3></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Item</th><th>Ordem</th><th>Quantidade</th><th>Motivo</th><th>Responsável</th><th>Em hold desde</th></tr></thead>
+            <tbody id="tbodyHoldResumo"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <details class="card">
+        <summary style="cursor:pointer;font-weight:800;font-size:15px">Métricas técnicas</summary>
+        <div style="margin-top:14px">
+          <div class="kpi-grid">
+            <div class="stat s-slate"><div class="stat-icon"><i data-lucide="tags"></i></div><div><div class="n" id="kEtq">0</div><div class="t">Etiquetas lidas</div></div></div>
+            <div class="stat s-slate"><div class="stat-icon"><i data-lucide="list"></i></div><div><div class="n" id="kLogs">0</div><div class="t">Logs gerados</div></div></div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- VIEW: RELATÓRIOS -->
+    <section id="view-relatorios" class="view">
+      <div class="view-header"><h2>Relatórios</h2></div>
+      <div class="card filtros-card">
+        <div class="filtros-row">
+          <div class="grp"><label for="repDataIni">Data inicial</label><input type="date" id="repDataIni" onchange="renderRelatorioResumo()" /></div>
+          <div class="grp"><label for="repDataFim">Data final</label><input type="date" id="repDataFim" onchange="renderRelatorioResumo()" /></div>
+          <div class="grp"><label for="repTurno">Turno</label>
+            <select id="repTurno" onchange="renderRelatorioResumo()"><option value="">Todos</option><option>Turno 1</option><option>Turno 2</option><option>Turno 3</option></select>
+          </div>
+          <div class="grp"><label for="repStatus">Ação</label>
+            <select id="repStatus" onchange="renderRelatorioResumo()">
+              <option value="">Todas</option>
+              <option value="CONFIRMACAO_PRODUCAO">Confirmação de produção</option>
+              <option value="ENVIO_HOLD">Envio p/ Hold</option>
+              <option value="ENVIO_SCRAP">Envio p/ Scrap</option>
+              <option value="HOLD_PARA_PRODUCAO">Hold liberado p/ Produção</option>
+              <option value="HOLD_PARA_SCRAP">Hold enviado p/ Scrap</option>
+              <option value="CORRECAO">Correção</option>
+            </select>
+          </div>
+          <div class="grp"><label for="repItem">Item</label><input id="repItem" type="text" oninput="renderRelatorioResumo()" /></div>
+          <div class="grp"><label for="repOrdem">Ordem</label><input id="repOrdem" type="text" oninput="renderRelatorioResumo()" /></div>
+          <div class="grp"><label for="repOrigem">Origem</label><input id="repOrigem" type="text" oninput="renderRelatorioResumo()" /></div>
+          <div class="grp"><label for="repOperador">Operador</label><input id="repOperador" type="text" oninput="renderRelatorioResumo()" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Resumo do período filtrado</h3>
+        <div class="kpi-grid" id="resumoRelatorio"></div>
+      </div>
+
+      <div class="card">
+        <button class="btn btn-blue btn-lg" id="btnGerarExcel" onclick="gerarExcel()"><i data-lucide="file-down"></i><span>Gerar Excel</span></button>
+        <p class="muted-txt" style="margin-top:10px">O arquivo é gerado com 3 abas: Resumo, Logs e Etiquetas, considerando os filtros acima.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-nav="apontamento" onclick="switchView('apontamento')"><i data-lucide="scan-line"></i><span>Apontar</span></button>
+  <button class="nav-btn" data-nav="etiquetas" onclick="switchView('etiquetas')"><i data-lucide="tags"></i><span>Etiquetas</span></button>
+  <button class="nav-btn" data-nav="dashboard" onclick="switchView('dashboard')"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></button>
+  <button class="nav-btn" data-nav="relatorios" onclick="switchView('relatorios')"><i data-lucide="file-spreadsheet"></i><span>Relatórios</span></button>
+</nav>
+
+<div id="modalOverlay" class="modal-overlay">
+  <div class="modal-dialog" id="modalDialog" role="dialog" aria-modal="true"></div>
+</div>
+
+<div id="successOverlay" class="success-overlay">
+  <div class="success-box" id="successBox">
+    <i data-lucide="check-circle-2" class="success-icon"></i>
+    <div class="success-title" id="successTitle"></div>
+    <div class="success-sub" id="successSub"></div>
   </div>
-
-  <!-- 2 + 3 + 4 + 5. DETALHES E AÇÕES -->
-  <div class="card" id="detailCard">
-    <h2>2 · Dados da Etiqueta</h2>
-
-    <div class="grid">
-      <div class="field"><div class="lbl">Origem</div><div class="val" id="dOrigem">—</div></div>
-      <div class="field"><div class="lbl">Item</div><div class="val" id="dItem">—</div></div>
-      <div class="field"><div class="lbl">Quantidade</div><div class="val" id="dQtd">—</div></div>
-      <div class="field"><div class="lbl">Ordem</div><div class="val" id="dOrdem">—</div></div>
-      <div class="field"><div class="lbl">Sequência</div><div class="val" id="dSeq">—</div></div>
-      <div class="field"><div class="lbl">Chave única</div><div class="val" id="dChave" style="font-size:13px">—</div></div>
-      <div class="field"><div class="lbl">Status atual</div><div class="val"><span id="dStatus" class="status-badge st-NOVA">NOVA</span></div></div>
-    </div>
-
-    <!-- avisos -->
-    <div id="alertHold" class="alert alert-hold"></div>
-    <div id="alertDup" class="alert alert-dup"></div>
-    <div id="alertInfo" class="alert alert-info"></div>
-
-    <!-- campo motivo scrap -->
-    <div id="scrapReasonBox">
-      <input id="scrapReason" type="text" placeholder="Motivo do scrap (opcional)" />
-    </div>
-
-    <h2 style="margin-top:20px">3 · Ações de Apontamento</h2>
-    <div class="actions" id="actionButtons">
-      <button class="btn btn-green"  id="btnProd"  onclick="apontar('PRODUCAO')">✔ Produção</button>
-      <button class="btn btn-red"    id="btnScrap" onclick="apontar('SCRAP')">✖ Scrap</button>
-      <button class="btn btn-amber"  id="btnHold"  onclick="apontar('HOLD')">⏸ Hold</button>
-    </div>
-  </div>
-
-  <!-- 6. DASHBOARD -->
-  <div class="card">
-    <h2>6 · Dashboard</h2>
-    <div class="cards">
-      <div class="stat s-green"><div class="n" id="kProd">0</div><div class="t">Produção aprovada</div></div>
-      <div class="stat s-red"><div class="n" id="kScrap">0</div><div class="t">Total scrap</div></div>
-      <div class="stat s-amber"><div class="n" id="kHold">0</div><div class="t">Total em hold</div></div>
-      <div class="stat s-slate"><div class="n" id="kEtq">0</div><div class="t">Etiquetas lidas</div></div>
-      <div class="stat s-blue"><div class="n" id="kLogs">0</div><div class="t">Logs gerados</div></div>
-    </div>
-  </div>
-
-  <!-- 7. TABELA ETIQUETAS -->
-  <div class="card">
-    <div class="toolbar">
-      <h2 style="margin:0">7 · Etiquetas Lidas</h2>
-      <button class="btn btn-ghost" onclick="resetTudo()">🗑 Zerar tudo</button>
-    </div>
-    <div class="tbl-wrap" style="margin-top:14px">
-      <table>
-        <thead><tr>
-          <th>Última mov.</th><th>Ordem</th><th>Item</th><th>Seq</th><th>Qtd</th>
-          <th>Status</th><th>Origem</th><th>Motivo scrap</th>
-        </tr></thead>
-        <tbody id="tbodyEtq"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- 8. TABELA LOGS -->
-  <div class="card">
-    <h2>8 · Histórico de Logs</h2>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Ordem</th>
-          <th>Item</th><th>Seq</th><th>Qtd</th><th>Observação</th>
-        </tr></thead>
-        <tbody id="tbodyLogs"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- 9. RELATÓRIO EXCEL -->
-  <div class="card">
-    <h2>9 · Relatório Excel <span class="sub">filtrado por período (usa data dos logs)</span></h2>
-    <div class="report-row">
-      <div class="grp"><label>Data inicial</label><input type="date" id="dtIni" /></div>
-      <div class="grp"><label>Data final</label><input type="date" id="dtFim" /></div>
-      <button class="btn btn-blue" onclick="gerarExcel()">📊 Gerar Excel</button>
-      <button class="btn btn-ghost" onclick="limparFiltroData()">Limpar datas</button>
-    </div>
-    <p style="font-size:12px;color:var(--muted);margin:10px 0 0">
-      Deixe as datas em branco para incluir todos os logs. O arquivo é gerado com 3 abas: Resumo, Logs e Etiquetas.
-    </p>
-  </div>
-
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
 /* =========================================================================
-   ESTADO EM MEMÓRIA  (persistido em localStorage p/ não perder ao recarregar)
-   - etiquetas: mapa por chave única -> dados + status
-   - logs: histórico de movimentações
+   ESTADO
    ========================================================================= */
-const USUARIO = "operador.teste";              // usuário fictício
-const LS_KEY  = "mvp_apontamento_v1";
+const OPERADOR = "operador.teste";
+const LS_KEY = "apontamento_v3";
+const LS_KEY_OLD = "mvp_apontamento_v1";
 
-let etiquetas = {};   // { chave: {origem,item,quantidade,ordem,sequencia,chave,status,motivoScrap,ultimaMov} }
-let logs = [];        // [{dataHora, usuario, acao, origem, ordem, item, sequencia, quantidade, statusFinal, obs}]
-let atual = null;     // etiqueta atualmente lida na tela
-let leituraHold = false;          // true quando a etiqueta lida estava em HOLD (aponta como normal)
-let apontamentoLiberado = false;  // true quando o operador confirmou reapontar etiqueta já apontada
-
+const SITUACAO_LABELS = {
+  EM_PRODUCAO:"Em produção", COM_HOLD:"Aguardando decisão de Hold", FINALIZADA:"Finalizada (100% Scrap)"
+};
+const SITUACAO_ICONS = {
+  EM_PRODUCAO:"check-circle-2", COM_HOLD:"pause-circle", FINALIZADA:"x-circle"
+};
+const SITUACAO_CSS = {
+  EM_PRODUCAO:"st-PRODUZIDA", COM_HOLD:"st-HOLD", FINALIZADA:"st-SCRAP"
+};
+const ACAO_LABELS = {
+  CONFIRMACAO_PRODUCAO:"Confirmação de produção", ENVIO_HOLD:"Envio p/ Hold", ENVIO_SCRAP:"Envio p/ Scrap",
+  HOLD_PARA_PRODUCAO:"Hold liberado p/ Produção", HOLD_PARA_SCRAP:"Hold enviado p/ Scrap", CORRECAO:"Correção manual"
+};
+const SCRAP_MOTIVOS = ["Defeito dimensional","Defeito visual","Trinca","Material danificado","Retrabalho não aprovado","Problema de processo","Outro"];
+const HOLD_MOTIVOS  = ["Aguardando análise da qualidade","Aguardando retrabalho","Divergência de quantidade","Problema de processo","Material em inspeção","Outro"];
 const SAMPLES = [
-  "B7C555017LR0A            12  M002320391",
-  "B7C555018LR0A            8   M002320392",
-  "B7C555019LR0A            5   M002320393",
+  "B6F55511 Y862AY          45  M002333161",
+  "B6F55511 Y862AY          45  M002333162",
+  "B6F55511 Y862AY          45  M0023331617",
 ];
 
-/* ---------- persistência ---------- */
-function salvar(){
-  localStorage.setItem(LS_KEY, JSON.stringify({etiquetas, logs}));
-}
+let etiquetas = {};
+let logs = [];
+let atual = null;
+let busy = false;
+let paginaEtiquetas = 1;
+const PAGE_SIZE = 10;
+
+let html5qr=null, camRodando=false, scanProcessando=false;
+let chartProducaoHora=null, chartScrapMotivo=null;
+
+/* =========================================================================
+   PERSISTÊNCIA (com migração automática de mvp_apontamento_v1)
+   ========================================================================= */
+function salvar(){ localStorage.setItem(LS_KEY, JSON.stringify({etiquetas, logs})); }
+
 function carregar(){
   try{
     const raw = localStorage.getItem(LS_KEY);
-    if(raw){ const d = JSON.parse(raw); etiquetas = d.etiquetas||{}; logs = d.logs||[]; }
+    if(raw){
+      const d = JSON.parse(raw);
+      etiquetas = d.etiquetas || {};
+      logs = d.logs || [];
+      return;
+    }
+    const old = localStorage.getItem(LS_KEY_OLD);
+    if(old){
+      const d = JSON.parse(old);
+      etiquetas = migrarEtiquetasV1(d.etiquetas||{});
+      logs = migrarLogsV1(d.logs||[]);
+      salvar();
+      setTimeout(()=>toast("Dados antigos importados com sucesso."), 600);
+    }
   }catch(e){ console.warn("Falha ao carregar estado:", e); }
+}
+
+function migrarEtiquetasV1(oldMap){
+  const novo = {};
+  Object.values(oldMap).forEach(e=>{
+    const qtd = e.quantidade||0;
+    let qtdProduzida=0, qtdHold=0, qtdScrap=0;
+    if(e.status==="SCRAP") qtdScrap = qtd;
+    else if(e.status==="HOLD") qtdHold = qtd;
+    else if(e.status==="PRODUZIDA" || e.status==="PRODUZIDO_APOS_HOLD") qtdProduzida = qtd;
+    novo[e.chave] = {
+      origem:e.origem, item:e.item, ordem:e.ordem, sequencia:e.sequencia, chave:e.chave,
+      quantidade:qtd, qtdProduzida, qtdHold, qtdScrap, confirmada:!!e.status && e.status!=="NOVA",
+      scrapMotivo:e.motivoScrap||"", scrapObs:"",
+      holdMotivo:"", holdResponsavel:"", holdObs:"", holdDataEntrada:e.dataHold||null,
+      turno:"", operador:OPERADOR,
+      criadoEm:e.ultimaMov||agoraISO(), ultimaMov:e.ultimaMov||agoraISO(),
+      historico:[]
+    };
+  });
+  return novo;
+}
+function migrarLogsV1(oldLogs){
+  return oldLogs.map(l=>({ ...l, turno:l.turno||"", acao:"CONFIRMACAO_PRODUCAO", chave:`${l.ordem}-${l.item}-${l.sequencia}` }));
 }
 
 /* ---------- util ---------- */
 function agoraISO(){ return new Date().toISOString(); }
-function fmtData(iso){
-  const d = new Date(iso);
-  return d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});
-}
+function fmtData(iso){ if(!iso) return "—"; const d=new Date(iso); return d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}); }
+function fmtHora(iso){ const d=new Date(iso); return d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
 function toast(msg){
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("show");
   clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove("show"), 2600);
 }
+function situacaoEtq(etq){
+  if(etq.qtdHold>0) return "COM_HOLD";
+  if(etq.qtdProduzida>0) return "EM_PRODUCAO";
+  return "FINALIZADA";
+}
+function badgeHTML(situacao){
+  return `<span class="status-badge ${SITUACAO_CSS[situacao]}"><i data-lucide="${SITUACAO_ICONS[situacao]}"></i>${SITUACAO_LABELS[situacao]}</span>`;
+}
+function withGuard(fn){ if(busy) return; busy=true; try{ fn(); } finally { setTimeout(()=>busy=false,350); } }
+function refreshIcons(){ if(window.lucide) lucide.createIcons(); }
 
 /* =========================================================================
    PARSER DO QR CODE
-   Padrão:  [origem 3][item]  <espaços>  [quantidade]  <espaços>  [ordem+sequencia]
-   Ex.:     B7C555017LR0A            12  M002320391
-            origem=B7C  item=555017LR0A  qtd=12  ordem=M00232039  seq=1
+   Layout de largura fixa, preenchido com espaços — NÃO dá para usar split
+   simples por espaço porque o Part Number tem um espaço interno.
+   Blocos reais (separados por 2+ espaços de preenchimento):
+     [Work Center(3) + Part Number]   [SNP]   [Nº da Ordem(M+8 díg.) + Sequência]
+   Ex.: "B6F55511 Y862AY          45  M0023331617"
+         -> workCenter="B6F", partNumber="55511 Y862AY", snp=45,
+            orderNumber="M00233316", sequence=17
    ========================================================================= */
+const QR_CONFIG = {
+  workCenterLength: 3,      // tamanho fixo do código do Work Center
+  orderPrefixLength: 9      // tamanho fixo de "M" + dígitos da ordem (ajustar aqui se mudar)
+};
+
+function parseEtiquetaQR(texto){
+  const rawQrContent = (texto||"").trim();
+  if(!rawQrContent) return { ok:false, error:"QR Code vazio.", rawQrContent };
+
+  /* 2+ espaços = separador de campo; espaço único fica preservado dentro do bloco (ex.: Part Number) */
+  let blocos = rawQrContent.split(/\s{2,}/).map(b=>b.trim()).filter(Boolean);
+
+  /* algumas etiquetas separam SNP e Ordem por um único espaço (ex.: "170 M002334181");
+     nesse caso o bloco final vem colado — separa manualmente pelo "M" da ordem */
+  if(blocos.length === 2){
+    const m = blocos[1].match(/^(\d+)\s+(M\d+)$/);
+    if(m) blocos = [blocos[0], m[1], m[2]];
+  }
+
+  if(blocos.length < 3){
+    return { ok:false, error:"QR Code incompleto: esperado Work Center+Part Number, SNP e Ordem+Sequência.", rawQrContent };
+  }
+  const [bloco1, bloco2, bloco3] = blocos;
+
+  const workCenter = bloco1.substring(0, QR_CONFIG.workCenterLength);
+  const partNumber = bloco1.substring(QR_CONFIG.workCenterLength).trim();
+  if(workCenter.length !== QR_CONFIG.workCenterLength){
+    return { ok:false, error:`Work Center inválido: esperado ${QR_CONFIG.workCenterLength} caracteres, recebido "${workCenter}".`, rawQrContent };
+  }
+  if(!partNumber){
+    return { ok:false, error:"Part Number não encontrado no QR Code.", rawQrContent };
+  }
+
+  const snp = parseInt(bloco2, 10);
+  if(isNaN(snp)){
+    return { ok:false, error:`SNP inválido: "${bloco2}" não é um número.`, rawQrContent };
+  }
+
+  if(bloco3[0] !== "M"){
+    return { ok:false, error:`Nº da ordem inválido: "${bloco3}" deveria começar com "M".`, rawQrContent };
+  }
+  if(bloco3.length <= QR_CONFIG.orderPrefixLength){
+    return { ok:false, error:`Ordem/sequência incompletas em "${bloco3}".`, rawQrContent };
+  }
+  const orderNumber = bloco3.substring(0, QR_CONFIG.orderPrefixLength);
+  const sequenceStr = bloco3.substring(QR_CONFIG.orderPrefixLength);
+  const sequence = parseInt(sequenceStr, 10);
+  if(!/^\d+$/.test(orderNumber.substring(1)) || !/^\d+$/.test(sequenceStr) || isNaN(sequence)){
+    return { ok:false, error:`Não foi possível separar ordem e sequência em "${bloco3}".`, rawQrContent };
+  }
+
+  return { ok:true, data:{ workCenter, partNumber, snp, orderNumber, sequence, rawQrContent } };
+}
+
+/* adapta o resultado do novo parser para o modelo interno (origem/item/ordem/sequencia/quantidade/chave)
+   já usado no restante do app, mantendo compatibilidade */
 function parseQR(texto){
-  const limpo = (texto||"").trim().replace(/\s+/g," ");
-  if(!limpo) return null;
-  const partes = limpo.split(" ");
-  if(partes.length < 3) return null;
+  const r = parseEtiquetaQR(texto);
+  if(!r.ok) return null;
+  const d = r.data;
+  const chave = `${d.orderNumber}-${d.partNumber}-${d.sequence}`;
+  return {
+    origem:d.workCenter, item:d.partNumber, ordem:d.orderNumber, sequencia:String(d.sequence),
+    quantidade:d.snp, chave,
+    workCenter:d.workCenter, partNumber:d.partNumber, snp:d.snp, orderNumber:d.orderNumber,
+    sequence:d.sequence, rawQrContent:d.rawQrContent
+  };
+}
 
-  const bloco1 = partes[0];                 // B7C555017LR0A
-  const qtdStr = partes[1];                 // 12
-  const bloco3 = partes[2];                 // M002320391
+/* =========================================================================
+   NAVEGAÇÃO
+   ========================================================================= */
+function switchView(view){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById("view-"+view).classList.add("active");
+  document.querySelectorAll("[data-nav]").forEach(b=>b.classList.toggle("active", b.dataset.nav===view));
+  if(view==="dashboard") renderDashboard();
+  if(view==="etiquetas"){ paginaEtiquetas=1; renderEtiquetasView(); }
+  if(view==="relatorios") renderRelatorioResumo();
+  if(view==="apontamento") focusReadInput();
+  refreshIcons();
+}
 
-  if(bloco1.length < 4) return null;
-  const origem = bloco1.substring(0,3);     // 3 primeiros = origem/setor/centro
-  const item   = bloco1.substring(3);       // restante = part number
+/* =========================================================================
+   MODAIS
+   ========================================================================= */
+function openModal(html){
+  document.getElementById("modalDialog").innerHTML = html;
+  document.getElementById("modalOverlay").classList.add("show");
+  refreshIcons();
+}
+function closeModal(){
+  document.getElementById("modalOverlay").classList.remove("show");
+  document.getElementById("modalDialog").innerHTML = "";
+}
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeModal(); });
+document.getElementById("modalOverlay").addEventListener("click", e=>{
+  if(e.target.id==="modalOverlay") closeModal();
+});
 
-  const quantidade = parseInt(qtdStr,10);
-  if(isNaN(quantidade)) return null;
+function resumoEtiquetaHTML(etq, saldoLabel, saldoQtd){
+  return `<div class="modal-resumo">
+    <div><span>Item</span><strong>${etq.item}</strong></div>
+    <div><span>Ordem</span><strong>${etq.ordem}</strong></div>
+    <div><span>Sequência</span><strong>${etq.sequencia}</strong></div>
+    <div><span>${saldoLabel||"Quantidade"}</span><strong>${saldoQtd!==undefined?saldoQtd:etq.quantidade}</strong></div>
+  </div>`;
+}
 
-  if(bloco3.length < 2) return null;
-  const ordem     = bloco3.slice(0,-1);     // tudo menos o último char
-  const sequencia = bloco3.slice(-1);       // último char = sequência
+function abrirModalConfirmacao({titulo, corBtn, textoBtn, etq, onConfirm}){
+  openModal(`
+    <h3>${titulo}</h3>
+    ${resumoEtiquetaHTML(etq)}
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancelar">Cancelar</button>
+      <button class="btn ${corBtn}" id="mConfirmar">${textoBtn}</button>
+    </div>
+  `);
+  document.getElementById("mCancelar").onclick = closeModal;
+  document.getElementById("mConfirmar").onclick = ()=> withGuard(onConfirm);
+}
 
-  const chave = `${ordem}-${item}-${sequencia}`;   // chave única
-  return {origem, item, quantidade, ordem, sequencia, chave};
+/* ---------- histórico (reutilizável) ---------- */
+function registrarHistorico(etq, acao, quantidadeMovida, obs, extra){
+  extra = extra || {};
+  const entry = { ts:agoraISO(), acao, quantidade:quantidadeMovida, usuario:OPERADOR, turno:turnoAtual(), obs:obs||"", ...extra };
+  if(!etq.historico) etq.historico = [];
+  etq.historico.push(entry);
+  logs.push({
+    ...entry,
+    dataHora: entry.ts,
+    origem:etq.origem, ordem:etq.ordem, item:etq.item, sequencia:etq.sequencia,
+    chave:etq.chave
+  });
 }
 
 /* =========================================================================
    LEITURA
    ========================================================================= */
 function lerQR(){
-  const dados = parseQR(document.getElementById("qrInput").value);
-  if(!dados){
-    toast("❌ Não foi possível interpretar o QR Code. Verifique o formato.");
-    return;
-  }
-  // etiqueta já existe? recupera status; senão cria como NOVA
-  let etq = etiquetas[dados.chave];
-  if(!etq){
-    etq = {...dados, status:"NOVA", motivoScrap:"", ultimaMov: agoraISO()};
-    etiquetas[dados.chave] = etq;
-    log("LEITURA", etq, "Etiqueta lida pela primeira vez");
-    salvar();
-  }
-  atual = etq;
-
-  leituraHold = false;
-  apontamentoLiberado = false;
-
-  if(etq.status==="HOLD"){
-    // Peça em HOLD: ao ser lida, comporta-se como peça NORMAL (botões liberados),
-    // sem conversão automática. Só ao clicar em Produção é que entra como PRODUZIDO_APOS_HOLD.
-    leituraHold = true;
-  }
-  else if(etq.status==="PRODUZIDA" || etq.status==="PRODUZIDO_APOS_HOLD" || etq.status==="SCRAP"){
-    // Já apontada (e não está em HOLD): avisa e pede confirmação antes de liberar reapontamento.
-    const tipo = etq.status==="SCRAP" ? "SCRAP" : "produção";
-    const ok = confirm(
-      "⚠ Esta etiqueta já foi apontada como "+tipo+".\n\n"+
-      "Deseja apontá-la NOVAMENTE? Isso somará de novo nos totais."
-    );
-    if(ok){
-      apontamentoLiberado = true;
-      log("REAPONTAMENTO", etq, "Operador confirmou novo apontamento de etiqueta já apontada");
-      salvar();
-      toast("⚠ Novo apontamento liberado — escolha a ação.");
-    }
-  }
-
-  renderDetalhe();
-  renderTudo();
+  const input = document.getElementById("qrInput");
+  abrirModalConferenciaQR(input.value);
 }
 
-function renderDetalhe(){
-  const card = document.getElementById("detailCard");
-  card.style.display = "block";
-  document.getElementById("dOrigem").textContent = atual.origem;
-  document.getElementById("dItem").textContent   = atual.item;
-  document.getElementById("dQtd").textContent    = atual.quantidade;
-  document.getElementById("dOrdem").textContent  = atual.ordem;
-  document.getElementById("dSeq").textContent    = atual.sequencia;
-  document.getElementById("dChave").textContent  = atual.chave;
+/* tela de conferência: mostra bruto x campos interpretados x status antes de aceitar a leitura */
+function abrirModalConferenciaQR(raw){
+  const r = parseEtiquetaQR(raw);
+  const campo = (label, valor) => `<div><span>${label}</span><strong>${valor}</strong></div>`;
 
-  const badge = document.getElementById("dStatus");
-  badge.textContent = atual.status;
-  badge.className = "status-badge st-" + atual.status;
+  const camposHTML = r.ok ? `
+    ${campo("Work Center", r.data.workCenter)}
+    ${campo("Part Number", r.data.partNumber)}
+    ${campo("SNP", r.data.snp)}
+    ${campo("Nº da Ordem", r.data.orderNumber)}
+    ${campo("Sequência", r.data.sequence)}
+  ` : `<div style="grid-column:1/-1"><span>Motivo</span><strong>${r.error}</strong></div>`;
 
-  // reset avisos / botões
-  ["alertHold","alertDup","alertInfo"].forEach(id=>{
-    const el=document.getElementById(id); el.classList.remove("show"); el.textContent="";
-  });
-  document.getElementById("scrapReasonBox").style.display="none";
-  document.getElementById("scrapReason").value="";
-  const btnProd=document.getElementById("btnProd"),
-        btnScrap=document.getElementById("btnScrap"),
-        btnHold=document.getElementById("btnHold");
-  // padrão: tudo habilitado
-  btnProd.disabled=btnScrap.disabled=btnHold.disabled=false;
+  const statusHTML = r.ok
+    ? `<span class="status-badge st-PRODUZIDA"><i data-lucide="check-circle"></i>Leitura válida</span>`
+    : `<span class="status-badge st-SCRAP"><i data-lucide="x-circle"></i>Formato inválido</span>`;
 
-  const st = atual.status;
-  const jaApontada = (st==="PRODUZIDA" || st==="PRODUZIDO_APOS_HOLD" || st==="SCRAP");
+  openModal(`
+    <h3>Conferência de leitura</h3>
+    <div class="form-grp">
+      <label>Conteúdo bruto lido</label>
+      <div class="modal-resumo" style="grid-template-columns:1fr;font-family:monospace">${(r.rawQrContent||"(vazio)").replace(/ /g,"&nbsp;")}</div>
+    </div>
+    <div class="modal-resumo">${camposHTML}</div>
+    <div class="form-grp">${statusHTML}</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancelar">Cancelar</button>
+      <button class="btn btn-green" id="mConfirmar" ${r.ok?"":"disabled"}>Confirmar leitura</button>
+    </div>
+  `);
+  document.getElementById("mCancelar").onclick = closeModal;
+  if(r.ok){
+    document.getElementById("mConfirmar").onclick = ()=> withGuard(()=> confirmarLeituraQR(r.data));
+  }
+}
 
-  if(leituraHold && st==="HOLD"){
-    // peça que estava em HOLD, lida agora: trata como NORMAL (botões liberados) + aviso
-    const a=document.getElementById("alertHold");
-    const desde = atual.dataHold ? (" desde "+fmtData(atual.dataHold)) : "";
-    a.textContent="⏸ Esta peça esteve em HOLD"+desde+". Aponte normalmente — ao clicar em Produção, entrará como \"Produzido após HOLD\".";
-    a.classList.add("show");
-    btnProd.disabled=btnScrap.disabled=btnHold.disabled=false;
+function confirmarLeituraQR(d){
+  const chave = `${d.orderNumber}-${d.partNumber}-${d.sequence}`;
+  const etq = etiquetas[chave];
+  if(etq){
+    atual = etq;
+  } else {
+    /* etiqueta nova: só é persistida quando a quantidade for confirmada */
+    atual = {
+      origem:d.workCenter, item:d.partNumber, ordem:d.orderNumber, sequencia:String(d.sequence), chave,
+      quantidade:d.snp, qtdProduzida:0, qtdHold:0, qtdScrap:0, confirmada:false, leituras:0,
+      scrapMotivo:"", scrapObs:"", holdMotivo:"", holdResponsavel:"", holdObs:"", holdDataEntrada:null,
+      turno:turnoAtual(), operador:OPERADOR,
+      criadoEm:agoraISO(), ultimaMov:agoraISO(), historico:[],
+      workCenter:d.workCenter, partNumber:d.partNumber, snp:d.snp, orderNumber:d.orderNumber,
+      sequence:d.sequence, rawQrContent:d.rawQrContent
+    };
   }
-  else if(st==="HOLD"){
-    // etiqueta acabou de ser colocada em HOLD agora (botão Hold) — fica pendente
-    const a=document.getElementById("alertHold");
-    const desde = atual.dataHold ? (" desde "+fmtData(atual.dataHold)) : "";
-    a.textContent="⏸ Etiqueta colocada em HOLD"+desde+" — pendente de retrabalho. Ao ler novamente, poderá apontar a produção.";
-    a.classList.add("show");
-    btnProd.disabled=btnScrap.disabled=btnHold.disabled=true;
-  }
-  else if(jaApontada && apontamentoLiberado){
-    // operador confirmou reapontar: libera as ações
-    const a=document.getElementById("alertInfo");
-    a.textContent="⚠ Novo apontamento confirmado — a próxima ação somará novamente nos totais.";
-    a.classList.add("show");
-    btnProd.disabled=btnScrap.disabled=btnHold.disabled=false;
-  }
-  else if(jaApontada){
-    // já apontada e NÃO confirmado: bloqueia (o aviso/confirmação ocorre na leitura)
-    const a=document.getElementById("alertDup");
-    a.textContent = st==="SCRAP"
-      ? "⛔ Esta etiqueta já foi apontada como SCRAP."
-      : "⛔ Esta etiqueta já foi apontada como produção. Não será somada novamente.";
-    a.classList.add("show");
-    btnProd.disabled=btnScrap.disabled=btnHold.disabled=true;
-  }
-  else {
-    const a=document.getElementById("alertInfo");
-    a.textContent="ℹ Etiqueta pronta para apontamento. Escolha uma ação abaixo.";
-    a.classList.add("show");
-  }
+  document.getElementById("qrInput").value = "";
+  closeModal();
+  renderApontamento();
+  renderTudo();
+  avancarFluxoLeitura();
+}
 
-  // mostra campo de motivo quando o usuário for clicar em Scrap (sempre visível p/ facilitar)
-  if(!btnScrap.disabled){
-    document.getElementById("scrapReasonBox").style.display="block";
-  }
+function focusReadInput(){
+  const el = document.getElementById("qrInput");
+  if(el) setTimeout(()=>el.focus(), 50);
+}
+
+function voltarParaLeitura(){
+  atual = null;
+  document.getElementById("qrInput").value = "";
+  renderApontamento();
+  focusReadInput();
+}
+
+function toggleDemo(){
+  const box = document.getElementById("demoBox");
+  box.style.display = box.style.display==="block" ? "none" : "block";
+}
+function initSamples(){
+  document.getElementById("sampleList").innerHTML = SAMPLES.map(s=>`<code onclick="usarSample(this)">${s.replace(/ /g,"&nbsp;")}</code>`).join("");
+}
+function usarSample(el){
+  document.getElementById("qrInput").value = el.textContent.replace(/ /g," ");
+  toast("Exemplo preenchido — pressione Enter para ler.");
+  focusReadInput();
 }
 
 /* =========================================================================
-   AÇÕES DE APONTAMENTO
+   CÂMERA (html5-qrcode)
    ========================================================================= */
-function log(acao, etq, obs){
-  logs.push({
-    dataHora: agoraISO(),
-    usuario: USUARIO,
-    acao,
-    origem: etq.origem,
-    ordem: etq.ordem,
-    item: etq.item,
-    sequencia: etq.sequencia,
-    quantidade: etq.quantidade,
-    statusFinal: etq.status,
-    obs: obs||""
-  });
-}
-
-function apontar(tipo){
-  if(!atual) return;
-  const eraHold = (atual.status==="HOLD");   // estava em HOLD antes deste apontamento?
-  const resumo = "\n\nItem "+atual.item+" • Ordem "+atual.ordem+" • Seq "+atual.sequencia+" • Qtd "+atual.quantidade;
-
-  if(tipo==="PRODUCAO"){
-    if(!confirm("Confirmar apontamento de PRODUÇÃO?"+(eraHold?" (peça veio de HOLD)":"")+resumo)) return;
-    if(eraHold){
-      const desde = atual.dataHold ? (" (esteve em HOLD desde "+fmtData(atual.dataHold)+")") : "";
-      atual.status="PRODUZIDO_APOS_HOLD";
-      atual.ultimaMov=agoraISO();
-      log("PRODUCAO_APOS_HOLD", atual, "Produzido após HOLD"+desde);
-      toast("✅ Produção (após HOLD) registrada: +"+atual.quantidade);
-    } else {
-      atual.status="PRODUZIDA";
-      atual.ultimaMov=agoraISO();
-      log("PRODUCAO", atual, "Apontado como produção aprovada");
-      toast("✔ Produção registrada: +"+atual.quantidade);
-    }
-    leituraHold=false;
-  }
-  else if(tipo==="SCRAP"){
-    const motivo=document.getElementById("scrapReason").value.trim();
-    if(!confirm("Confirmar apontamento de SCRAP?"+resumo+(motivo?("\nMotivo: "+motivo):""))) return;
-    atual.status="SCRAP";
-    atual.motivoScrap=motivo;
-    atual.ultimaMov=agoraISO();
-    log("SCRAP", atual, "Scrap"+(eraHold?" (peça vinha de HOLD)":"")+(motivo?(" — motivo: "+motivo):" (sem motivo informado)"));
-    toast("✖ Scrap registrado: +"+atual.quantidade);
-    leituraHold=false;
-  }
-  else if(tipo==="HOLD"){
-    if(!confirm("Confirmar envio para HOLD (pendente de retrabalho)?"+resumo)) return;
-    atual.status="HOLD";
-    atual.dataHold=agoraISO();                 // registra QUANDO entrou em hold
-    atual.ultimaMov=agoraISO();
-    log("HOLD", atual, "Etiqueta colocada em HOLD — pendente de retrabalho (refazer ciclo)");
-    toast("⏸ Etiqueta em HOLD (pendente de retrabalho)");
-    leituraHold=false;
-  }
-  salvar();
-  renderDetalhe();
-  renderTudo();
-}
-
-function limparLeitura(){
-  document.getElementById("qrInput").value="";
-  document.getElementById("detailCard").style.display="none";
-  atual=null;
-}
-
-/* =========================================================================
-   LEITURA POR CÂMERA (html5-qrcode)
-   - lista câmeras, inicia o scan e ao decodificar joga o texto no fluxo lerQR()
-   - evita leituras repetidas em sequência com um pequeno "cooldown"
-   ========================================================================= */
-let html5qr = null;           // instância do scanner
-let camRodando = false;
-let scanProcessando = false;  // trava enquanto processa a leitura e fecha a câmera
-
 async function toggleCamera(){
   if(camRodando){ pararCamera(); return; }
   if(typeof Html5Qrcode==="undefined"){ toast("Biblioteca de câmera não carregou (precisa de internet)."); return; }
 
-  document.getElementById("scannerBox").style.display="block";
-  const status=document.getElementById("camStatus");
-  status.textContent="Solicitando acesso à câmera...";
+  document.getElementById("scannerBox").style.display = "block";
+  const status = document.getElementById("camStatus");
+  status.textContent = "Solicitando acesso à câmera...";
 
   try{
     const cams = await Html5Qrcode.getCameras();
     if(!cams || cams.length===0){ status.textContent="Nenhuma câmera encontrada."; return; }
 
-    // popula o seletor de câmeras
-    const sel=document.getElementById("camSelect");
-    sel.innerHTML=cams.map(c=>`<option value="${c.id}">${c.label||("Câmera "+c.id.slice(0,6))}</option>`).join("");
-    sel.onchange=()=>{ if(camRodando){ pararCamera().then(()=>iniciarCamera(sel.value)); } };
+    const sel = document.getElementById("camSelect");
+    sel.innerHTML = cams.map(c=>`<option value="${c.id}">${c.label||("Câmera "+c.id.slice(0,6))}</option>`).join("");
+    sel.onchange = ()=>{ if(camRodando){ pararCamera().then(()=>iniciarCamera(sel.value)); } };
 
-    // prefere a câmera traseira, se houver
     const traseira = cams.find(c=>/back|rear|traseir|environment/i.test(c.label));
     const idEscolhida = traseira ? traseira.id : cams[0].id;
-    sel.value=idEscolhida;
+    sel.value = idEscolhida;
     await iniciarCamera(idEscolhida);
   }catch(e){
     console.error(e);
-    status.textContent="Erro ao acessar a câmera. Verifique as permissões do navegador.";
-    toast("❌ Não foi possível acessar a câmera.");
+    status.textContent = "Erro ao acessar a câmera. Verifique as permissões do navegador.";
+    toast("Não foi possível acessar a câmera.");
   }
 }
 
@@ -591,44 +893,40 @@ async function iniciarCamera(camId){
   scanProcessando = false;
   html5qr = new Html5Qrcode("reader", { verbose:false });
   const config = { fps:10, qrbox:{width:250,height:250}, aspectRatio:1.0 };
-  await html5qr.start(camId, config, onScanSuccess, ()=>{ /* erros de frame: ignorar */ });
+  await html5qr.start(camId, config, onScanSuccess, ()=>{});
   camRodando = true;
-  document.getElementById("btnCam").textContent="📷 Câmera ligada";
-  document.getElementById("camStatus").textContent="Aponte o QR Code para a câmera...";
+  document.getElementById("btnCam").innerHTML = '<i data-lucide="camera"></i><span>Câmera ligada</span>';
+  document.getElementById("camStatus").textContent = "Aponte o QR Code para a câmera...";
+  refreshIcons();
 }
 
 function flashLeitura(){
-  const f=document.createElement("div");
-  f.className="scan-flash";
-  f.innerHTML='<div class="check">✓</div>';
+  const f = document.createElement("div");
+  f.style.cssText = "position:fixed;inset:0;z-index:60;pointer-events:none;background:rgba(22,163,74,.30);display:flex;align-items:center;justify-content:center;animation:flashfade .5s ease-out forwards";
+  f.innerHTML = '<div style="width:120px;height:120px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:70px;font-weight:800">✓</div>';
   document.body.appendChild(f);
-  setTimeout(()=>f.remove(), 650);
+  const style = document.createElement("style");
+  style.textContent = "@keyframes flashfade{0%{opacity:0}25%{opacity:1}100%{opacity:0}}";
+  f.appendChild(style);
+  setTimeout(()=>f.remove(), 500);
 }
 function beepOk(){
   try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    const o=ctx.createOscillator(); o.frequency.value=880; o.connect(ctx.destination);
-    o.start(); setTimeout(()=>{o.stop(); ctx.close();},120);
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(); o.frequency.value=880; o.connect(ctx.destination);
+    o.start(); setTimeout(()=>{ o.stop(); ctx.close(); },120);
   }catch(e){}
 }
 
 async function onScanSuccess(texto){
-  if(scanProcessando) return;     // ignora múltiplos frames enquanto processa/fecha
+  if(scanProcessando) return;
   scanProcessando = true;
-
-  // 1) retorno visual + sonoro imediato
   flashLeitura();
   beepOk();
-  document.getElementById("camStatus").textContent = "✔ QR lido: " + texto;
-
-  // 2) fecha a câmera
+  document.getElementById("camStatus").textContent = "QR lido: " + texto;
   await pararCamera();
-
-  // 3) seleciona a etiqueta (reaproveita todo o fluxo de leitura/validação)
   document.getElementById("qrInput").value = texto;
   lerQR();
-  toast("📷 QR Code capturado!");
-
   scanProcessando = false;
 }
 
@@ -636,234 +934,739 @@ async function pararCamera(){
   if(html5qr && camRodando){
     try{ await html5qr.stop(); await html5qr.clear(); }catch(e){}
   }
-  camRodando=false;
-  html5qr=null;
-  document.getElementById("btnCam").textContent="📷 Escanear com câmera";
-  document.getElementById("scannerBox").style.display="none";
+  camRodando = false;
+  html5qr = null;
+  document.getElementById("btnCam").innerHTML = '<i data-lucide="camera"></i><span>Escanear com câmera</span>';
+  document.getElementById("scannerBox").style.display = "none";
+  refreshIcons();
 }
 
 /* =========================================================================
-   TOTAIS / DASHBOARD / TABELAS
-   - Totais derivados dos LOGS (somam por movimentação efetiva)
+   APONTAMENTOS
    ========================================================================= */
-function calcTotais(){
-  let prod=0, scrap=0, hold=0, posHold=0;
-  logs.forEach(l=>{
-    if(l.acao==="PRODUCAO") prod+=l.quantidade;
-    else if(l.acao==="PRODUCAO_APOS_HOLD"){ prod+=l.quantidade; posHold+=l.quantidade; }
-    else if(l.acao==="SCRAP") scrap+=l.quantidade;
+function renderApontamento(){
+  const idle = document.getElementById("idleScreen");
+  const card = document.getElementById("etiquetaCard");
+  updateLastMovInfo();
+  if(!atual){ idle.style.display="flex"; card.style.display="none"; return; }
+  idle.style.display = "none"; card.style.display = "block";
+
+  document.getElementById("dItem").textContent = atual.item;
+  document.getElementById("dOrdem").textContent = atual.ordem;
+  document.getElementById("dSeq").textContent = atual.sequencia;
+  document.getElementById("dOrigem").textContent = atual.origem;
+  document.getElementById("dChave").textContent = atual.chave;
+
+  const holdAlert = document.getElementById("holdAlert");
+  const actionsConfirmar = document.getElementById("actionsConfirmar");
+  const jaApontadaBox = document.getElementById("jaApontadaBox");
+  const baldesGrid = document.getElementById("dBaldesGrid");
+  [holdAlert, actionsConfirmar, jaApontadaBox].forEach(el=> el.style.display="none");
+  baldesGrid.style.display = "none";
+  document.getElementById("dQtd").textContent = atual.quantidade;
+
+  const etapa = atual.leituras||0;
+
+  if(etapa===0){
+    document.getElementById("qtyHeroLbl").textContent = "Quantidade lida (confirme ou ajuste)";
+    document.getElementById("dStatusWrap").innerHTML = `<span class="status-badge st-NOVA"><i data-lucide="clock"></i>1ª leitura — aguardando confirmação</span>`;
+    actionsConfirmar.style.display = "grid";
+    const inp = document.getElementById("inpQtdConfirmar");
+    inp.value = atual.quantidade;
+    setTimeout(()=>inp.focus(), 50);
+    refreshIcons();
+    return;
+  }
+
+  document.getElementById("qtyHeroLbl").textContent = "Quantidade total da etiqueta";
+  document.getElementById("dQtd").textContent = atual.quantidade;
+  const situacao = situacaoEtq(atual);
+  document.getElementById("dStatusWrap").innerHTML = badgeHTML(situacao);
+  baldesGrid.style.display = "grid";
+  document.getElementById("dProduzida").textContent = atual.qtdProduzida;
+  document.getElementById("dHold").textContent = atual.qtdHold;
+  document.getElementById("dScrap").textContent = atual.qtdScrap;
+
+  if(atual.qtdHold>0){
+    holdAlert.style.display = "block";
+    holdAlert.innerHTML = `
+      <strong><i data-lucide="pause-circle"></i> ${atual.qtdHold} peça(s) em Hold</strong>
+      <div>Desde: ${fmtData(atual.holdDataEntrada)}</div>
+      <div>Motivo: ${atual.holdMotivo||"—"}</div>
+      <div>Responsável/Setor: ${atual.holdResponsavel||"—"}</div>
+      ${atual.holdObs ? `<div>Observação: ${atual.holdObs}</div>` : ""}
+    `;
+  }
+
+  if(etapa>=3 && atual.qtdHold===0){
+    jaApontadaBox.style.display = "block";
+    document.getElementById("jaApontadaTxt").innerHTML = `
+      <strong>Ciclo encerrado</strong>
+      <div>Situação: ${SITUACAO_LABELS[situacao]}</div>
+      <div>Data/hora: ${fmtData(atual.ultimaMov)}</div>
+      <div>Operador: ${atual.operador||"—"}</div>
+      <div>Item: ${atual.item} · Ordem: ${atual.ordem} · Total: ${atual.quantidade} (Scrap: ${atual.qtdScrap})</div>
+    `;
+  }
+  refreshIcons();
+}
+
+function updateLastMovInfo(){
+  const el = document.getElementById("lastMovInfo");
+  if(!el) return;
+  if(!logs.length){ el.textContent=""; return; }
+  const l = logs[logs.length-1];
+  el.textContent = `Último: ${ACAO_LABELS[l.acao]||l.acao} — Item ${l.item} — ${l.quantidade} peças — ${fmtHora(l.dataHora)}`;
+}
+
+/* etapa 0 -> 1 : 1ª leitura, confirma a quantidade e encerra */
+function acaoConfirmarQuantidade(){
+  if(!atual) return;
+  const inp = document.getElementById("inpQtdConfirmar");
+  const qtd = parseInt(inp.value,10);
+  if(isNaN(qtd) || qtd<=0){ toast("Informe uma quantidade válida."); return; }
+  withGuard(()=>{
+    atual.quantidade = qtd;
+    atual.qtdProduzida = qtd;
+    atual.qtdHold = 0;
+    atual.qtdScrap = 0;
+    atual.confirmada = true;
+    atual.leituras = 1;
+    atual.turno = turnoAtual();
+    atual.operador = OPERADOR;
+    atual.ultimaMov = agoraISO();
+    etiquetas[atual.chave] = atual;
+    registrarHistorico(atual, "CONFIRMACAO_PRODUCAO", qtd, "Quantidade confirmada na 1ª leitura");
+    salvar();
+    renderTudo();
+    sucessoEFechaEEncerra("Produção confirmada", qtd, "green");
   });
-  // hold = etiquetas atualmente em HOLD
-  Object.values(etiquetas).forEach(e=>{ if(e.status==="HOLD") hold+=e.quantidade; });
-  return {prod, scrap, hold, posHold};
 }
 
-function renderTudo(){
-  const t=calcTotais();
-  document.getElementById("kProd").textContent=t.prod;
-  document.getElementById("kScrap").textContent=t.scrap;
-  document.getElementById("kHold").textContent=t.hold;
-  document.getElementById("kEtq").textContent=Object.keys(etiquetas).length;
-  document.getElementById("kLogs").textContent=logs.length;
+/* etapa 1 -> 2 : 2ª leitura, decide quanto da quantidade confirmada vai para Scrap e quanto vai para Hold
+   (o restante permanece como produção boa) */
+function abrirModalSplitScrapHold(){
+  if(!atual) return;
+  const etq = atual;
+  const motivosScrapHTML = SCRAP_MOTIVOS.map(m=>`<option value="${m}">${m}</option>`).join("");
+  const motivosHoldHTML = HOLD_MOTIVOS.map(m=>`<option value="${m}">${m}</option>`).join("");
+  openModal(`
+    <h3>2ª leitura — distribuir quantidade</h3>
+    ${resumoEtiquetaHTML(etq, "Quantidade total", etq.quantidade)}
+    <p class="muted-txt">Informe quanto vai para Scrap e quanto vai para Hold. O restante permanece como produção boa.</p>
+    <div class="grid" style="grid-template-columns:1fr 1fr">
+      <div class="form-grp"><label for="mScrapQtd">Qtd. Scrap</label><input id="mScrapQtd" type="number" min="0" max="${etq.quantidade}" step="1" value="0" /></div>
+      <div class="form-grp"><label for="mHoldQtd">Qtd. Hold</label><input id="mHoldQtd" type="number" min="0" max="${etq.quantidade}" step="1" value="0" /></div>
+    </div>
+    <div class="form-grp"><label for="mMotivoScrap">Motivo do Scrap</label><select id="mMotivoScrap">${motivosScrapHTML}</select></div>
+    <div class="form-grp" id="mOutroScrapWrap" style="display:none"><label for="mOutroScrap">Descreva o motivo do Scrap</label><input id="mOutroScrap" type="text" /></div>
+    <div class="form-grp"><label for="mMotivoHold">Motivo do Hold</label><select id="mMotivoHold">${motivosHoldHTML}</select></div>
+    <div class="form-grp" id="mOutroHoldWrap" style="display:none"><label for="mOutroHold">Descreva o motivo do Hold</label><input id="mOutroHold" type="text" /></div>
+    <div class="form-grp"><label for="mRespHold">Setor ou responsável (Hold)</label><input id="mRespHold" type="text" placeholder="Ex.: Qualidade" /></div>
+    <p class="muted-txt" id="txtRestanteSplit"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancelar">Cancelar</button>
+      <button class="btn btn-green" id="mConfirmar">Confirmar distribuição</button>
+    </div>
+  `);
+  const inpScrap = document.getElementById("mScrapQtd");
+  const inpHold = document.getElementById("mHoldQtd");
+  const selMotivoScrap = document.getElementById("mMotivoScrap");
+  const outroScrapWrap = document.getElementById("mOutroScrapWrap");
+  const selMotivoHold = document.getElementById("mMotivoHold");
+  const outroHoldWrap = document.getElementById("mOutroHoldWrap");
+  selMotivoScrap.onchange = ()=>{ outroScrapWrap.style.display = selMotivoScrap.value==="Outro" ? "block":"none"; };
+  selMotivoHold.onchange = ()=>{ outroHoldWrap.style.display = selMotivoHold.value==="Outro" ? "block":"none"; };
+  const atualizarRestante = ()=>{
+    const s = parseInt(inpScrap.value,10)||0;
+    const h = parseInt(inpHold.value,10)||0;
+    const rest = etq.quantidade - s - h;
+    document.getElementById("txtRestanteSplit").textContent = `Vai para produção: ${rest>=0?rest:"—"}`;
+  };
+  inpScrap.oninput = atualizarRestante; inpHold.oninput = atualizarRestante; atualizarRestante();
 
-  // tabela etiquetas
-  const tb=document.getElementById("tbodyEtq");
-  const arr=Object.values(etiquetas).sort((a,b)=>b.ultimaMov.localeCompare(a.ultimaMov));
-  tb.innerHTML = arr.length? arr.map(e=>`
-    <tr>
-      <td>${fmtData(e.ultimaMov)}</td>
-      <td>${e.ordem}</td>
-      <td>${e.item}</td>
-      <td>${e.sequencia}</td>
-      <td>${e.quantidade}</td>
-      <td><span class="status-badge st-${e.status}">${e.status}</span></td>
-      <td>${e.origem}</td>
-      <td>${e.motivoScrap||"—"}</td>
-    </tr>`).join("") : `<tr><td colspan="8" class="empty">Nenhuma etiqueta lida ainda.</td></tr>`;
+  document.getElementById("mCancelar").onclick = ()=>{ closeModal(); voltarParaLeitura(); };
+  document.getElementById("mConfirmar").onclick = ()=> withGuard(()=>{
+    const scrapQtd = parseInt(inpScrap.value,10);
+    const holdQtd = parseInt(inpHold.value,10);
+    if(isNaN(scrapQtd) || scrapQtd<0 || isNaN(holdQtd) || holdQtd<0){ toast("Informe quantidades válidas."); return; }
+    if(scrapQtd+holdQtd > etq.quantidade){ toast(`A soma de Scrap e Hold não pode ultrapassar ${etq.quantidade}.`); return; }
+    let motivoScrap = selMotivoScrap.value;
+    if(scrapQtd>0 && motivoScrap==="Outro"){
+      const outro = document.getElementById("mOutroScrap").value.trim();
+      if(!outro){ toast("Descreva o motivo do Scrap."); return; }
+      motivoScrap = outro;
+    }
+    let motivoHold = selMotivoHold.value;
+    const respHold = document.getElementById("mRespHold").value.trim();
+    if(holdQtd>0){
+      if(motivoHold==="Outro"){
+        const outro = document.getElementById("mOutroHold").value.trim();
+        if(!outro){ toast("Descreva o motivo do Hold."); return; }
+        motivoHold = outro;
+      }
+      if(!respHold){ toast("Informe o setor ou responsável do Hold."); return; }
+    }
 
-  // tabela logs (mais recentes primeiro)
-  const lb=document.getElementById("tbodyLogs");
-  const ls=[...logs].reverse();
-  lb.innerHTML = ls.length? ls.map(l=>`
-    <tr>
-      <td>${fmtData(l.dataHora)}</td>
-      <td>${l.usuario}</td>
-      <td>${l.acao}</td>
-      <td>${l.ordem}</td>
-      <td>${l.item}</td>
-      <td>${l.sequencia}</td>
-      <td>${l.quantidade}</td>
-      <td>${l.obs}</td>
-    </tr>`).join("") : `<tr><td colspan="8" class="empty">Nenhum log gerado ainda.</td></tr>`;
+    const producaoQtd = etq.quantidade - scrapQtd - holdQtd;
+    if(scrapQtd>0) registrarHistorico(etq, "ENVIO_SCRAP", scrapQtd, "", {motivo:motivoScrap});
+    if(holdQtd>0) registrarHistorico(etq, "ENVIO_HOLD", holdQtd, "", {motivo:motivoHold, responsavel:respHold});
+    etq.qtdScrap = scrapQtd;
+    etq.qtdHold = holdQtd;
+    etq.qtdProduzida = producaoQtd;
+    if(scrapQtd>0) etq.scrapMotivo = motivoScrap;
+    if(holdQtd>0){ etq.holdMotivo = motivoHold; etq.holdResponsavel = respHold; etq.holdDataEntrada = agoraISO(); }
+    etq.leituras = 2;
+    etq.ultimaMov = agoraISO(); etq.operador = OPERADOR;
+    etiquetas[etq.chave] = etq;
+    salvar();
+    closeModal();
+    renderTudo();
+    sucessoEFechaEEncerra("Distribuição registrada", etq.quantidade, "blue");
+  });
+}
+
+/* etapa 2 -> 3 : 3ª leitura com Hold pendente — decide quanto do Hold vai para Scrap e quanto libera para Produção */
+function abrirModalResolverHold(){
+  if(!atual) return;
+  const etq = atual;
+  const holdQtd0 = etq.qtdHold;
+  const motivosScrapHTML = SCRAP_MOTIVOS.map(m=>`<option value="${m}">${m}</option>`).join("");
+  openModal(`
+    <h3>3ª leitura — resolver Hold</h3>
+    ${resumoEtiquetaHTML(etq, "Em Hold", holdQtd0)}
+    <p class="muted-txt">Das ${holdQtd0} peça(s) em Hold, informe quantas vão para Scrap. O restante libera para Produção.</p>
+    <div class="form-grp"><label for="mScrapHold">Qtd. para Scrap</label><input id="mScrapHold" type="number" min="0" max="${holdQtd0}" step="1" value="0" /></div>
+    <div class="form-grp"><label for="mMotivoScrapHold">Motivo do Scrap</label><select id="mMotivoScrapHold">${motivosScrapHTML}</select></div>
+    <div class="form-grp" id="mOutroScrapHoldWrap" style="display:none"><label for="mOutroScrapHold">Descreva o motivo</label><input id="mOutroScrapHold" type="text" /></div>
+    <p class="muted-txt" id="txtRestanteHold"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancelar">Cancelar</button>
+      <button class="btn btn-green" id="mConfirmar">Confirmar</button>
+    </div>
+  `);
+  const inpScrap = document.getElementById("mScrapHold");
+  const selMotivo = document.getElementById("mMotivoScrapHold");
+  const outroWrap = document.getElementById("mOutroScrapHoldWrap");
+  selMotivo.onchange = ()=>{ outroWrap.style.display = selMotivo.value==="Outro" ? "block":"none"; };
+  const atualizarRestante = ()=>{
+    const s = parseInt(inpScrap.value,10)||0;
+    const rest = holdQtd0 - s;
+    document.getElementById("txtRestanteHold").textContent = `Vai para produção: ${rest>=0?rest:"—"}`;
+  };
+  inpScrap.oninput = atualizarRestante; atualizarRestante();
+
+  document.getElementById("mCancelar").onclick = ()=>{ closeModal(); voltarParaLeitura(); };
+  document.getElementById("mConfirmar").onclick = ()=> withGuard(()=>{
+    const scrapQtd = parseInt(inpScrap.value,10);
+    if(isNaN(scrapQtd) || scrapQtd<0 || scrapQtd>holdQtd0){ toast(`Informe uma quantidade entre 0 e ${holdQtd0}.`); return; }
+    let motivo = selMotivo.value;
+    if(scrapQtd>0 && motivo==="Outro"){
+      const outro = document.getElementById("mOutroScrapHold").value.trim();
+      if(!outro){ toast("Descreva o motivo do Scrap."); return; }
+      motivo = outro;
+    }
+    const producaoQtd = holdQtd0 - scrapQtd;
+    if(scrapQtd>0) registrarHistorico(etq, "HOLD_PARA_SCRAP", scrapQtd, "", {motivo});
+    if(producaoQtd>0) registrarHistorico(etq, "HOLD_PARA_PRODUCAO", producaoQtd, "Hold liberado para produção");
+    etq.qtdHold = 0;
+    etq.qtdScrap += scrapQtd;
+    etq.qtdProduzida += producaoQtd;
+    if(scrapQtd>0) etq.scrapMotivo = motivo;
+    etq.leituras = 3;
+    etq.ultimaMov = agoraISO(); etq.operador = OPERADOR;
+    etiquetas[etq.chave] = etq;
+    salvar();
+    closeModal();
+    renderTudo();
+    sucessoEFechaEEncerra("Hold resolvido", holdQtd0, "green");
+  });
+}
+
+/* etapa >=2 sem hold, ou etapa >=3 : ciclo já concluído, nenhuma ação disponível */
+function abrirModalCicloEncerrado(){
+  if(!atual) return;
+  const etq = atual;
+  openModal(`
+    <h3>Ciclo encerrado</h3>
+    <div class="alert alert-dup">
+      <div>O ciclo de leitura desta etiqueta já foi encerrado — não há mais ações pendentes.</div>
+      <div style="margin-top:8px">Item: ${etq.item} · Ordem: ${etq.ordem} · Produzida: ${etq.qtdProduzida} · Hold: ${etq.qtdHold} · Scrap: ${etq.qtdScrap}</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-blue" id="mConfirmar">Entendi</button>
+    </div>
+  `);
+  document.getElementById("mConfirmar").onclick = ()=>{ closeModal(); voltarParaLeitura(); };
+}
+
+/* decide, logo após uma leitura, qual etapa mostrar — chamada só a partir de confirmarLeituraQR */
+function avancarFluxoLeitura(){
+  if(!atual) return;
+  const etapa = atual.leituras||0;
+  if(etapa===0) return; /* formulário de confirmação já está visível no card (etapa 1) */
+  if(etapa===1){ abrirModalSplitScrapHold(); return; } /* 2ª leitura */
+  if(etapa===2){ /* 3ª leitura */
+    if(atual.qtdHold>0){ abrirModalResolverHold(); } else { abrirModalCicloEncerrado(); }
+    return;
+  }
+  abrirModalCicloEncerrado(); /* 4ª leitura em diante */
+}
+
+function sucessoEFechaEEncerra(mensagem, quantidade, cor){
+  const overlay = document.getElementById("successOverlay");
+  const box = document.getElementById("successBox");
+  box.className = "success-box success-" + (cor||"green");
+  document.getElementById("successTitle").textContent = mensagem;
+  document.getElementById("successSub").textContent = "Quantidade: " + quantidade;
+  overlay.style.display = "flex";
+  refreshIcons();
+  setTimeout(()=>{
+    overlay.style.display = "none";
+    voltarParaLeitura();
+  }, 1000);
 }
 
 /* =========================================================================
-   RELATÓRIO EXCEL (ExcelJS) — 3 abas, cabeçalho destacado, autofilter, largura
+   TURNO / RELÓGIO
    ========================================================================= */
-function filtrarLogsPorData(){
-  const ini=document.getElementById("dtIni").value;
-  const fim=document.getElementById("dtFim").value;
-  return logs.filter(l=>{
-    const d=l.dataHora.slice(0,10); // YYYY-MM-DD
+function calcularTurnoPorHora(){
+  const h = new Date().getHours();
+  if(h>=6 && h<14) return "Turno 1";
+  if(h>=14 && h<22) return "Turno 2";
+  return "Turno 3";
+}
+function turnoAtual(){
+  const sel = document.getElementById("selTurno");
+  return (sel && sel.value) || calcularTurnoPorHora();
+}
+function iniciarTurnoSelect(){
+  const sel = document.getElementById("selTurno");
+  sel.innerHTML = ["Turno 1","Turno 2","Turno 3"].map(t=>`<option value="${t}">${t}</option>`).join("");
+  const salvo = localStorage.getItem("turno_operador");
+  sel.value = salvo || calcularTurnoPorHora();
+  sel.onchange = ()=>{ localStorage.setItem("turno_operador", sel.value); atualizarTopbarSub(); };
+  atualizarTopbarSub();
+}
+function atualizarTopbarSub(){
+  document.getElementById("topbarSub").textContent = `Operador: ${OPERADOR} · ${turnoAtual()} · Dados armazenados localmente`;
+}
+function iniciarRelogio(){
+  const el = document.getElementById("relogio");
+  function tick(){ el.textContent = new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }
+  tick(); setInterval(tick, 30000);
+}
+
+/* =========================================================================
+   DASHBOARD
+   ========================================================================= */
+function getEtiquetasArray(){ return Object.values(etiquetas); }
+
+function filtrarEtiquetasDashboard(){
+  const ini = document.getElementById("dashDataIni").value;
+  const fim = document.getElementById("dashDataFim").value;
+  const turno = document.getElementById("dashTurno").value;
+  const item = (document.getElementById("dashItem").value||"").toLowerCase();
+  const ordem = (document.getElementById("dashOrdem").value||"").toLowerCase();
+  const origem = (document.getElementById("dashOrigem").value||"").toLowerCase();
+  return getEtiquetasArray().filter(e=>{
+    const d = e.ultimaMov.slice(0,10);
     if(ini && d<ini) return false;
     if(fim && d>fim) return false;
+    if(turno && e.turno!==turno) return false;
+    if(item && !e.item.toLowerCase().includes(item)) return false;
+    if(ordem && !e.ordem.toLowerCase().includes(ordem)) return false;
+    if(origem && !e.origem.toLowerCase().includes(origem)) return false;
     return true;
   });
 }
 
+function calcTotais(lista){
+  let prod=0, scrap=0, hold=0;
+  lista.forEach(e=>{
+    if(!e.confirmada) return;
+    prod += e.qtdProduzida||0;
+    scrap += e.qtdScrap||0;
+    hold += e.qtdHold||0;
+  });
+  const taxaScrap = (prod+scrap)>0 ? (scrap/(prod+scrap)*100) : 0;
+  return {prod, scrap, hold, taxaScrap};
+}
+
+function renderDashboard(){
+  const lista = filtrarEtiquetasDashboard();
+  const t = calcTotais(lista);
+  document.getElementById("kProd").textContent = t.prod;
+  document.getElementById("kScrap").textContent = t.scrap;
+  document.getElementById("kHold").textContent = t.hold;
+  document.getElementById("kTaxaScrap").textContent = t.taxaScrap.toFixed(1)+"%";
+  document.getElementById("kEtq").textContent = getEtiquetasArray().length;
+  document.getElementById("kLogs").textContent = logs.length;
+
+  renderChartProducaoHora(lista);
+  renderChartScrapMotivo(lista);
+  renderHoldResumo(lista.filter(e=>e.qtdHold>0));
+}
+
+function renderChartProducaoHora(lista){
+  const chaves = new Set(lista.map(e=>e.chave));
+  const horas = new Array(24).fill(0);
+  logs.forEach(l=>{
+    if(!chaves.has(l.chave)) return;
+    if(l.acao==="CONFIRMACAO_PRODUCAO" || l.acao==="HOLD_PARA_PRODUCAO"){
+      const h = new Date(l.dataHora).getHours();
+      horas[h] += l.quantidade;
+    }
+  });
+  const ctx = document.getElementById("chartProducaoHora");
+  if(!ctx || typeof Chart==="undefined") return;
+  if(chartProducaoHora) chartProducaoHora.destroy();
+  chartProducaoHora = new Chart(ctx, {
+    type:"bar",
+    data:{ labels:horas.map((_,h)=>h+"h"), datasets:[{label:"Produção", data:horas, backgroundColor:"#2a78d6", borderRadius:4, maxBarThickness:28}] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{padding:10, cornerRadius:8} },
+      scales:{
+        y:{ beginAtZero:true, ticks:{color:"#898781"}, grid:{color:"#e1e0d9"} },
+        x:{ ticks:{color:"#898781"}, grid:{display:false} }
+      }
+    }
+  });
+}
+
+function renderChartScrapMotivo(lista){
+  const chaves = new Set(lista.map(e=>e.chave));
+  const porMotivo = {};
+  logs.forEach(l=>{
+    if(!chaves.has(l.chave)) return;
+    if(l.acao==="ENVIO_SCRAP" || l.acao==="HOLD_PARA_SCRAP"){
+      const m = l.motivo || "Não informado";
+      porMotivo[m] = (porMotivo[m]||0) + l.quantidade;
+    }
+  });
+  const labels = Object.keys(porMotivo), valores = Object.values(porMotivo);
+  const ctx = document.getElementById("chartScrapMotivo");
+  if(!ctx || typeof Chart==="undefined") return;
+  if(chartScrapMotivo) chartScrapMotivo.destroy();
+  /* paleta categórica fixa (ordem validada p/ contraste e distinção em daltonismo) */
+  const PALETA_CATEGORICA = ["#2a78d6","#1baf7a","#eda100","#008300","#4a3aa7","#e34948","#e87ba4","#eb6834"];
+  chartScrapMotivo = new Chart(ctx, {
+    type:"doughnut",
+    data:{ labels, datasets:[{
+      data:valores, backgroundColor:PALETA_CATEGORICA, borderColor:"#fff", borderWidth:2, hoverOffset:6
+    }] },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:"62%",
+      plugins:{
+        legend:{ position:"bottom", labels:{ color:"#52514e", boxWidth:12, boxHeight:12, padding:12, font:{size:12} } },
+        tooltip:{ padding:10, cornerRadius:8 }
+      }
+    }
+  });
+}
+
+function renderHoldResumo(listaHold){
+  const tb = document.getElementById("tbodyHoldResumo");
+  tb.innerHTML = listaHold.length ? listaHold.map(e=>`
+    <tr>
+      <td>${e.item}</td><td>${e.ordem}</td><td>${e.qtdHold}</td>
+      <td>${e.holdMotivo||"—"}</td><td>${e.holdResponsavel||"—"}</td><td>${fmtData(e.holdDataEntrada)}</td>
+    </tr>`).join("") : `<tr><td colspan="6" class="empty">Nenhuma etiqueta em Hold.</td></tr>`;
+}
+
+function limparFiltrosDashboard(){
+  ["dashDataIni","dashDataFim","dashTurno","dashItem","dashOrdem","dashOrigem"].forEach(id=>document.getElementById(id).value="");
+  renderDashboard();
+}
+
+/* =========================================================================
+   TABELAS (Etiquetas)
+   ========================================================================= */
+function filtrarEtiquetasView(){
+  const busca = (document.getElementById("fltBusca").value||"").toLowerCase();
+  const status = document.getElementById("fltStatus").value;
+  const ini = document.getElementById("fltDataIni").value;
+  const fim = document.getElementById("fltDataFim").value;
+  const item = (document.getElementById("fltItem").value||"").toLowerCase();
+  const ordem = (document.getElementById("fltOrdem").value||"").toLowerCase();
+  return getEtiquetasArray().filter(e=>{
+    if(status && situacaoEtq(e)!==status) return false;
+    const d = e.ultimaMov.slice(0,10);
+    if(ini && d<ini) return false;
+    if(fim && d>fim) return false;
+    if(item && !e.item.toLowerCase().includes(item)) return false;
+    if(ordem && !e.ordem.toLowerCase().includes(ordem)) return false;
+    if(busca && !(e.item.toLowerCase().includes(busca) || e.ordem.toLowerCase().includes(busca) || e.chave.toLowerCase().includes(busca))) return false;
+    return true;
+  }).sort((a,b)=>b.ultimaMov.localeCompare(a.ultimaMov));
+}
+
+function renderEtiquetasView(){
+  const lista = filtrarEtiquetasView();
+  const totalPaginas = Math.max(1, Math.ceil(lista.length/PAGE_SIZE));
+  if(paginaEtiquetas>totalPaginas) paginaEtiquetas = totalPaginas;
+  const inicio = (paginaEtiquetas-1)*PAGE_SIZE;
+  const pagina = lista.slice(inicio, inicio+PAGE_SIZE);
+
+  const tb = document.getElementById("tbodyEtq");
+  tb.innerHTML = pagina.length ? pagina.map(e=>`
+    <tr onclick="abrirDetalheEtiqueta('${e.chave}')">
+      <td>${badgeHTML(situacaoEtq(e))}</td>
+      <td>${e.item}</td>
+      <td>${e.ordem}</td>
+      <td>${e.quantidade}</td>
+      <td>${e.qtdProduzida}</td>
+      <td>${e.qtdHold}</td>
+      <td>${e.qtdScrap}</td>
+      <td>${fmtData(e.ultimaMov)}</td>
+      <td>${e.operador||"—"}</td>
+    </tr>`).join("") : `<tr><td colspan="9" class="empty">Nenhuma etiqueta encontrada.</td></tr>`;
+
+  const pag = document.getElementById("paginacaoEtq");
+  pag.innerHTML = `
+    <button class="btn btn-ghost" ${paginaEtiquetas<=1?"disabled":""} onclick="mudarPaginaEtiquetas(-1)">Anterior</button>
+    <span>Página ${paginaEtiquetas} de ${totalPaginas}</span>
+    <button class="btn btn-ghost" ${paginaEtiquetas>=totalPaginas?"disabled":""} onclick="mudarPaginaEtiquetas(1)">Próxima</button>
+  `;
+  refreshIcons();
+}
+function mudarPaginaEtiquetas(delta){ paginaEtiquetas += delta; renderEtiquetasView(); }
+function limparFiltrosEtiquetas(){
+  ["fltBusca","fltStatus","fltDataIni","fltDataFim","fltItem","fltOrdem"].forEach(id=>document.getElementById(id).value="");
+  paginaEtiquetas = 1; renderEtiquetasView();
+}
+
+function descreverHistorico(h){
+  let txt = (ACAO_LABELS[h.acao] || h.acao) + (h.quantidade!==undefined ? ` (${h.quantidade} pç)` : "");
+  if(h.motivo) txt += " — Motivo: "+h.motivo;
+  if(h.responsavel) txt += " — Resp.: "+h.responsavel;
+  if(h.obs) txt += " — "+h.obs;
+  return txt;
+}
+
+function abrirDetalheEtiqueta(chave){
+  const e = etiquetas[chave];
+  if(!e) return;
+  const historicoHTML = (e.historico||[]).map(h=>`
+    <div class="timeline-item">
+      <div class="timeline-hora">${fmtHora(h.ts)}</div>
+      <div class="timeline-txt">${descreverHistorico(h)}</div>
+    </div>`).join("") || '<p class="muted-txt">Sem histórico.</p>';
+  openModal(`
+    <h3>Detalhes da etiqueta</h3>
+    ${resumoEtiquetaHTML(e, "Total")}
+    <div class="modal-resumo">
+      <div><span>Produzida</span><strong>${e.qtdProduzida}</strong></div>
+      <div><span>Hold</span><strong>${e.qtdHold}</strong></div>
+      <div><span>Scrap</span><strong>${e.qtdScrap}</strong></div>
+    </div>
+    <div class="form-grp"><label>Origem</label><div>${e.origem}</div></div>
+    <div class="form-grp"><label>Chave única</label><div>${e.chave}</div></div>
+    ${e.scrapMotivo ? `<div class="form-grp"><label>Último motivo de Scrap</label><div>${e.scrapMotivo}${e.scrapObs?(" — "+e.scrapObs):""}</div></div>` : ""}
+    ${e.holdMotivo ? `<div class="form-grp"><label>Últimos dados de Hold</label><div>${e.holdMotivo} · ${e.holdResponsavel||"—"}${e.holdObs?(" — "+e.holdObs):""}</div></div>` : ""}
+    <h4 style="margin:16px 0 6px">Histórico</h4>
+    <div class="timeline">${historicoHTML}</div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div>
+  `);
+}
+
+/* =========================================================================
+   RELATÓRIOS
+   ========================================================================= */
+function filtrarLogsRelatorio(){
+  const ini = document.getElementById("repDataIni").value;
+  const fim = document.getElementById("repDataFim").value;
+  const turno = document.getElementById("repTurno").value;
+  const status = document.getElementById("repStatus").value;
+  const item = (document.getElementById("repItem").value||"").toLowerCase();
+  const ordem = (document.getElementById("repOrdem").value||"").toLowerCase();
+  const origem = (document.getElementById("repOrigem").value||"").toLowerCase();
+  const operador = (document.getElementById("repOperador").value||"").toLowerCase();
+  return logs.filter(l=>{
+    const d = l.dataHora.slice(0,10);
+    if(ini && d<ini) return false;
+    if(fim && d>fim) return false;
+    if(turno && l.turno!==turno) return false;
+    if(status && l.acao!==status) return false;
+    if(item && !(l.item||"").toLowerCase().includes(item)) return false;
+    if(ordem && !(l.ordem||"").toLowerCase().includes(ordem)) return false;
+    if(origem && !(l.origem||"").toLowerCase().includes(origem)) return false;
+    if(operador && !(l.usuario||"").toLowerCase().includes(operador)) return false;
+    return true;
+  });
+}
+
+function calcTotaisLogs(logsF){
+  let prod=0, scrap=0, hold=0;
+  logsF.forEach(l=>{
+    if(l.acao==="CONFIRMACAO_PRODUCAO" || l.acao==="HOLD_PARA_PRODUCAO") prod += l.quantidade;
+    else if(l.acao==="ENVIO_SCRAP" || l.acao==="HOLD_PARA_SCRAP") scrap += l.quantidade;
+    else if(l.acao==="ENVIO_HOLD") hold += l.quantidade;
+  });
+  const taxaScrap = (prod+scrap)>0 ? (scrap/(prod+scrap)*100) : 0;
+  return {prod, scrap, hold, taxaScrap};
+}
+
+function renderRelatorioResumo(){
+  const logsF = filtrarLogsRelatorio();
+  const t = calcTotaisLogs(logsF);
+  const ini = document.getElementById("repDataIni").value || "(início)";
+  const fim = document.getElementById("repDataFim").value || "(fim)";
+  document.getElementById("resumoRelatorio").innerHTML = `
+    <div class="stat s-slate"><div class="n" style="font-size:15px">${ini} a ${fim}</div><div class="t">Período</div></div>
+    <div class="stat s-green"><div class="n">${t.prod}</div><div class="t">Produção</div></div>
+    <div class="stat s-red"><div class="n">${t.scrap}</div><div class="t">Scrap</div></div>
+    <div class="stat s-amber"><div class="n">${t.hold}</div><div class="t">Hold</div></div>
+    <div class="stat s-blue"><div class="n">${t.taxaScrap.toFixed(1)}%</div><div class="t">Taxa de Scrap</div></div>
+    <div class="stat s-slate"><div class="n">${logsF.length}</div><div class="t">Registros</div></div>
+  `;
+}
+
 async function gerarExcel(){
   if(typeof ExcelJS==="undefined"){ toast("Biblioteca ExcelJS não carregou (precisa de internet)."); return; }
-  const ini=document.getElementById("dtIni").value || "(início)";
-  const fim=document.getElementById("dtFim").value || "(fim)";
-  const logsF=filtrarLogsPorData();
+  const logsF = filtrarLogsRelatorio();
+  if(logsF.length===0){ toast("Nenhum registro no filtro selecionado."); return; }
 
-  if(logsF.length===0){ toast("Nenhum log no período selecionado."); return; }
+  const btn = document.getElementById("btnGerarExcel");
+  if(busy) return;
+  busy = true; btn.disabled = true;
+  const oldHTML = btn.innerHTML;
+  btn.innerHTML = '<i data-lucide="loader"></i><span>Gerando...</span>';
+  refreshIcons();
 
-  // etiquetas envolvidas nos logs filtrados
-  const chavesEnv=new Set(logsF.map(l=>`${l.ordem}-${l.item}-${l.sequencia}`));
-  const etqF=Object.values(etiquetas).filter(e=>chavesEnv.has(e.chave));
+  try{
+    const ini = document.getElementById("repDataIni").value || "(início)";
+    const fim = document.getElementById("repDataFim").value || "(fim)";
+    const t = calcTotaisLogs(logsF);
 
-  // totais do período (com base nos logs filtrados)
-  let prod=0,scrap=0,hold=0,posHold=0;
-  logsF.forEach(l=>{
-    if(l.acao==="PRODUCAO") prod+=l.quantidade;
-    else if(l.acao==="PRODUCAO_APOS_HOLD"){ prod+=l.quantidade; posHold+=l.quantidade; }
-    else if(l.acao==="SCRAP") scrap+=l.quantidade;
-    else if(l.acao==="HOLD") hold+=l.quantidade;
-  });
+    const chavesEnv = new Set(logsF.map(l=>l.chave));
+    const etqF = getEtiquetasArray().filter(e=>chavesEnv.has(e.chave));
 
-  const wb=new ExcelJS.Workbook();
-  wb.creator="MVP Apontamento";
-  wb.created=new Date();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Apontamento de Produção"; wb.created = new Date();
 
-  const headFill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1D4ED8"}};
-  const headFont={bold:true,color:{argb:"FFFFFFFF"},size:11};
-  const headAlign={vertical:"middle",horizontal:"center"};
-  function estilizarHeader(row){
-    row.eachCell(c=>{ c.fill=headFill; c.font=headFont; c.alignment=headAlign;
-      c.border={top:{style:"thin"},left:{style:"thin"},bottom:{style:"thin"},right:{style:"thin"}}; });
-    row.height=22;
+    const headFill = {type:"pattern",pattern:"solid",fgColor:{argb:"FF1D4ED8"}};
+    const headFont = {bold:true,color:{argb:"FFFFFFFF"},size:11};
+    const headAlign = {vertical:"middle",horizontal:"center"};
+    function estilizarHeader(row){
+      row.eachCell(c=>{ c.fill=headFill; c.font=headFont; c.alignment=headAlign;
+        c.border={top:{style:"thin"},left:{style:"thin"},bottom:{style:"thin"},right:{style:"thin"}}; });
+      row.height = 22;
+    }
+
+    const s1 = wb.addWorksheet("Resumo");
+    s1.columns = [{width:34},{width:30}];
+    s1.mergeCells("A1:B1");
+    const tit = s1.getCell("A1");
+    tit.value = "RELATÓRIO DE APONTAMENTO DE PRODUÇÃO";
+    tit.font = {bold:true,size:14,color:{argb:"FF0F172A"}};
+    tit.alignment = {horizontal:"center"};
+    s1.getRow(1).height = 26;
+    const resumo = [
+      ["Período do relatório", `${ini} a ${fim}`],
+      ["Total produção", t.prod], ["Total scrap", t.scrap], ["Total hold", t.hold],
+      ["Taxa de scrap", t.taxaScrap.toFixed(1)+"%"], ["Quantidade de registros", logsF.length],
+      ["Data/hora de geração", fmtData(agoraISO())],
+    ];
+    s1.addRow([]);
+    resumo.forEach(([k,v])=>{
+      const r = s1.addRow([k,v]);
+      r.getCell(1).font = {bold:true,color:{argb:"FF334155"}};
+      r.getCell(1).fill = {type:"pattern",pattern:"solid",fgColor:{argb:"FFF1F5F9"}};
+      r.eachCell(c=>c.border={top:{style:"thin",color:{argb:"FFCBD5E1"}},bottom:{style:"thin",color:{argb:"FFCBD5E1"}},left:{style:"thin",color:{argb:"FFCBD5E1"}},right:{style:"thin",color:{argb:"FFCBD5E1"}}});
+    });
+
+    const s2 = wb.addWorksheet("Logs");
+    s2.columns = [
+      {header:"Data/Hora",width:21},{header:"Usuário",width:16},{header:"Turno",width:10},{header:"Ação",width:24},
+      {header:"Origem",width:10},{header:"Ordem",width:14},{header:"Item",width:16},{header:"Sequência",width:11},
+      {header:"Quantidade movida",width:16},
+      {header:"Motivo",width:28},{header:"Responsável Hold",width:18},{header:"Observação",width:40},
+    ];
+    estilizarHeader(s2.getRow(1));
+    logsF.forEach(l=>s2.addRow([
+      fmtData(l.dataHora), l.usuario, l.turno||"", ACAO_LABELS[l.acao]||l.acao, l.origem, l.ordem, l.item, l.sequencia,
+      l.quantidade, l.motivo||"", l.responsavel||"", l.obs||""
+    ]));
+    s2.autoFilter = "A1:L1"; s2.views = [{state:"frozen",ySplit:1}];
+
+    const s3 = wb.addWorksheet("Etiquetas");
+    s3.columns = [
+      {header:"Ordem",width:14},{header:"Item",width:16},{header:"Sequência",width:11},{header:"Total",width:10},
+      {header:"Produzida",width:12},{header:"Hold",width:10},{header:"Scrap",width:10},
+      {header:"Origem",width:10},{header:"Situação",width:24},{header:"Última movimentação",width:21},
+      {header:"Operador",width:16},{header:"Turno",width:10},{header:"Último motivo Scrap",width:28},
+      {header:"Último motivo Hold",width:28},{header:"Responsável Hold",width:18},
+    ];
+    estilizarHeader(s3.getRow(1));
+    etqF.forEach(e=>s3.addRow([
+      e.ordem, e.item, e.sequencia, e.quantidade, e.qtdProduzida, e.qtdHold, e.qtdScrap,
+      e.origem, SITUACAO_LABELS[situacaoEtq(e)], fmtData(e.ultimaMov), e.operador||"", e.turno||"",
+      e.scrapMotivo||"", e.holdMotivo||"", e.holdResponsavel||""
+    ]));
+    s3.autoFilter = "A1:O1"; s3.views = [{state:"frozen",ySplit:1}];
+
+    const nome = `relatorio_apontamento_${(document.getElementById("repDataIni").value||"inicio")}_a_${(document.getElementById("repDataFim").value||"fim")}.xlsx`;
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = nome; a.click(); URL.revokeObjectURL(a.href);
+    toast("Excel gerado: "+nome);
+  } finally {
+    btn.disabled = false; btn.innerHTML = oldHTML; refreshIcons();
+    busy = false;
   }
+}
 
-  /* ----- Aba 1: Resumo ----- */
-  const s1=wb.addWorksheet("Resumo");
-  s1.columns=[{width:34},{width:30}];
-  s1.mergeCells("A1:B1");
-  const tit=s1.getCell("A1");
-  tit.value="RELATÓRIO DE APONTAMENTO DE PRODUÇÃO";
-  tit.font={bold:true,size:14,color:{argb:"FF0F172A"}};
-  tit.alignment={horizontal:"center"};
-  s1.getRow(1).height=26;
+/* ---------- render geral / reset ---------- */
+function renderTudo(){
+  updateLastMovInfo();
+  const viewAtiva = document.querySelector(".view.active");
+  const id = viewAtiva ? viewAtiva.id : "";
+  if(id==="view-dashboard") renderDashboard();
+  if(id==="view-etiquetas") renderEtiquetasView();
+  if(id==="view-relatorios") renderRelatorioResumo();
+}
 
-  const resumo=[
-    ["Período do relatório", `${ini}  a  ${fim}`],
-    ["Total produção aprovada", prod],
-    ["Total scrap", scrap],
-    ["Total hold", hold],
-    ["Total produzido após hold", posHold],
-    ["Total de etiquetas movimentadas", etqF.length],
-    ["Data/hora de geração", fmtData(agoraISO())],
-  ];
-  s1.addRow([]); // linha 2 vazia
-  resumo.forEach(([k,v])=>{
-    const r=s1.addRow([k,v]);
-    r.getCell(1).font={bold:true,color:{argb:"FF334155"}};
-    r.getCell(1).fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFF1F5F9"}};
-    r.eachCell(c=>c.border={top:{style:"thin",color:{argb:"FFCBD5E1"}},bottom:{style:"thin",color:{argb:"FFCBD5E1"}},left:{style:"thin",color:{argb:"FFCBD5E1"}},right:{style:"thin",color:{argb:"FFCBD5E1"}}});
+function resetTudo(){
+  abrirModalConfirmacao({
+    titulo:"Zerar TODAS as etiquetas e logs em memória?", corBtn:"btn-red", textoBtn:"Zerar tudo",
+    etq:{item:"—",ordem:"—",sequencia:"—",quantidade:"—"},
+    onConfirm:()=>{
+      etiquetas = {}; logs = []; atual = null;
+      localStorage.removeItem(LS_KEY);
+      closeModal();
+      renderApontamento(); renderTudo();
+      toast("Tudo zerado.");
+    }
+  });
+}
+
+/* =========================================================================
+   INICIALIZAÇÃO
+   ========================================================================= */
+function init(){
+  carregar();
+  iniciarTurnoSelect();
+  iniciarRelogio();
+  initSamples();
+
+  document.getElementById("qrInput").addEventListener("keydown", e=>{
+    if(e.key==="Enter"){ e.preventDefault(); lerQR(); }
   });
 
-  /* ----- Aba 2: Logs ----- */
-  const s2=wb.addWorksheet("Logs");
-  s2.columns=[
-    {header:"Data/Hora",width:21},
-    {header:"Usuário",width:16},
-    {header:"Ação",width:20},
-    {header:"Origem",width:10},
-    {header:"Ordem",width:14},
-    {header:"Item",width:16},
-    {header:"Sequência",width:11},
-    {header:"Quantidade",width:12},
-    {header:"Status final",width:22},
-    {header:"Observação",width:48},
-  ];
-  estilizarHeader(s2.getRow(1));
-  logsF.forEach(l=>s2.addRow([
-    fmtData(l.dataHora), l.usuario, l.acao, l.origem, l.ordem,
-    l.item, l.sequencia, l.quantidade, l.statusFinal, l.obs
-  ]));
-  s2.autoFilter="A1:J1";
-  s2.views=[{state:"frozen",ySplit:1}];
+  const hoje = new Date().toISOString().slice(0,10);
+  ["dashDataIni","dashDataFim","repDataIni","repDataFim"].forEach(id=>{ document.getElementById(id).value = hoje; });
 
-  /* ----- Aba 3: Etiquetas ----- */
-  const s3=wb.addWorksheet("Etiquetas");
-  s3.columns=[
-    {header:"Ordem",width:14},
-    {header:"Item",width:16},
-    {header:"Sequência",width:11},
-    {header:"Quantidade",width:12},
-    {header:"Origem",width:10},
-    {header:"Status atual",width:22},
-    {header:"Última movimentação",width:21},
-    {header:"Motivo scrap",width:40},
-  ];
-  estilizarHeader(s3.getRow(1));
-  etqF.forEach(e=>s3.addRow([
-    e.ordem, e.item, e.sequencia, e.quantidade, e.origem,
-    e.status, fmtData(e.ultimaMov), e.motivoScrap||""
-  ]));
-  s3.autoFilter="A1:H1";
-  s3.views=[{state:"frozen",ySplit:1}];
-
-  // nome do arquivo
-  const dIni=document.getElementById("dtIni").value || "inicio";
-  const dFim=document.getElementById("dtFim").value || "fim";
-  const nome=`relatorio_apontamento_${dIni}_a_${dFim}.xlsx`;
-
-  const buf=await wb.xlsx.writeBuffer();
-  const blob=new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=nome;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast("📊 Excel gerado: "+nome);
-}
-
-function limparFiltroData(){
-  document.getElementById("dtIni").value="";
-  document.getElementById("dtFim").value="";
-}
-
-/* =========================================================================
-   RESET
-   ========================================================================= */
-function resetTudo(){
-  if(!confirm("Zerar TODAS as etiquetas e logs em memória?")) return;
-  etiquetas={}; logs=[]; atual=null;
-  localStorage.removeItem(LS_KEY);
-  limparLeitura();
+  renderApontamento();
   renderTudo();
-  toast("Tudo zerado.");
+  switchView("apontamento");
+  refreshIcons();
+  focusReadInput();
 }
 
-/* =========================================================================
-   INIT
-   ========================================================================= */
-function initSamples(){
-  const box=document.getElementById("sampleList");
-  box.innerHTML=SAMPLES.map(s=>`<code onclick="usarSample(this)">${s.replace(/ /g,"&nbsp;")}</code>`).join("");
-}
-function usarSample(el){
-  document.getElementById("qrInput").value=el.textContent.replace(/ /g," ");
-  toast("Exemplo preenchido — clique em Ler QR Code.");
-}
-
-carregar();
-initSamples();
-renderTudo();
-// preenche datas do filtro com hoje por conveniência
-(function(){ const hoje=new Date().toISOString().slice(0,10);
-  document.getElementById("dtIni").value=hoje; document.getElementById("dtFim").value=hoje; })();
+document.addEventListener("DOMContentLoaded", init);
 </script>
 </body>
 </html>
