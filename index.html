@@ -1055,8 +1055,8 @@ function abrirModalSplitScrapHold(){
     ${resumoEtiquetaHTML(etq, "Quantidade total", etq.quantidade)}
     <p class="muted-txt">Informe quanto vai para Scrap e quanto vai para Hold. O restante permanece como produção boa.</p>
     <div class="grid" style="grid-template-columns:1fr 1fr">
-      <div class="form-grp"><label for="mScrapQtd">Qtd. Scrap</label><input id="mScrapQtd" type="number" min="0" max="${etq.quantidade}" step="1" value="0" /></div>
-      <div class="form-grp"><label for="mHoldQtd">Qtd. Hold</label><input id="mHoldQtd" type="number" min="0" max="${etq.quantidade}" step="1" value="0" /></div>
+      <div class="form-grp"><label for="mScrapQtd">Qtd. Scrap</label><input id="mScrapQtd" type="number" min="0" max="${etq.quantidade}" step="1" placeholder="0" /></div>
+      <div class="form-grp"><label for="mHoldQtd">Qtd. Hold</label><input id="mHoldQtd" type="number" min="0" max="${etq.quantidade}" step="1" placeholder="0" /></div>
     </div>
     <div class="form-grp"><label for="mMotivoScrap">Motivo do Scrap</label><select id="mMotivoScrap">${motivosScrapHTML}</select></div>
     <div class="form-grp" id="mOutroScrapWrap" style="display:none"><label for="mOutroScrap">Descreva o motivo do Scrap</label><input id="mOutroScrap" type="text" /></div>
@@ -1087,8 +1087,8 @@ function abrirModalSplitScrapHold(){
 
   document.getElementById("mCancelar").onclick = ()=>{ closeModal(); voltarParaLeitura(); };
   document.getElementById("mConfirmar").onclick = ()=> withGuard(()=>{
-    const scrapQtd = parseInt(inpScrap.value,10);
-    const holdQtd = parseInt(inpHold.value,10);
+    const scrapQtd = inpScrap.value.trim()==="" ? 0 : parseInt(inpScrap.value,10);
+    const holdQtd = inpHold.value.trim()==="" ? 0 : parseInt(inpHold.value,10);
     if(isNaN(scrapQtd) || scrapQtd<0 || isNaN(holdQtd) || holdQtd<0){ toast("Informe quantidades válidas."); return; }
     if(scrapQtd+holdQtd > etq.quantidade){ toast(`A soma de Scrap e Hold não pode ultrapassar ${etq.quantidade}.`); return; }
     let motivoScrap = selMotivoScrap.value;
@@ -1136,7 +1136,7 @@ function abrirModalResolverHold(){
     <h3>3ª leitura — resolver Hold</h3>
     ${resumoEtiquetaHTML(etq, "Em Hold", holdQtd0)}
     <p class="muted-txt">Das ${holdQtd0} peça(s) em Hold, informe quantas vão para Scrap. O restante libera para Produção.</p>
-    <div class="form-grp"><label for="mScrapHold">Qtd. para Scrap</label><input id="mScrapHold" type="number" min="0" max="${holdQtd0}" step="1" value="0" /></div>
+    <div class="form-grp"><label for="mScrapHold">Qtd. para Scrap</label><input id="mScrapHold" type="number" min="0" max="${holdQtd0}" step="1" placeholder="0" /></div>
     <div class="form-grp"><label for="mMotivoScrapHold">Motivo do Scrap</label><select id="mMotivoScrapHold">${motivosScrapHTML}</select></div>
     <div class="form-grp" id="mOutroScrapHoldWrap" style="display:none"><label for="mOutroScrapHold">Descreva o motivo</label><input id="mOutroScrapHold" type="text" /></div>
     <p class="muted-txt" id="txtRestanteHold"></p>
@@ -1158,7 +1158,7 @@ function abrirModalResolverHold(){
 
   document.getElementById("mCancelar").onclick = ()=>{ closeModal(); voltarParaLeitura(); };
   document.getElementById("mConfirmar").onclick = ()=> withGuard(()=>{
-    const scrapQtd = parseInt(inpScrap.value,10);
+    const scrapQtd = inpScrap.value.trim()==="" ? 0 : parseInt(inpScrap.value,10);
     if(isNaN(scrapQtd) || scrapQtd<0 || scrapQtd>holdQtd0){ toast(`Informe uma quantidade entre 0 e ${holdQtd0}.`); return; }
     let motivo = selMotivo.value;
     if(scrapQtd>0 && motivo==="Outro"){
