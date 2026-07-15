@@ -239,13 +239,13 @@ tbody tr:hover{background:#f8fafc}
     <div class="logo">QR</div>
     <div class="topbar-title">
       <h1>Apontamento de Produção</h1>
-      <p id="topbarSub">Operador: operador.teste · Turno 1 · Dados armazenados localmente</p>
+      <p id="topbarSub">Operador: operador.teste · Turno 1 · Dados armazenados no servidor</p>
     </div>
   </div>
   <div class="topbar-right">
     <span id="relogio" class="clock"></span>
     <select id="selTurno" class="turno-select" aria-label="Turno"></select>
-    <span class="local-badge"><i data-lucide="hard-drive"></i> Local</span>
+    <span class="local-badge"><i data-lucide="server"></i> Servidor</span>
   </div>
 </header>
 
@@ -351,7 +351,7 @@ tbody tr:hover{background:#f8fafc}
     <section id="view-etiquetas" class="view">
       <div class="view-header">
         <h2>Etiquetas</h2>
-        <button class="btn btn-ghost" onclick="resetTudo()"><i data-lucide="trash-2"></i><span>Zerar tudo</span></button>
+        <button class="btn btn-ghost" onclick="recarregarDados()"><i data-lucide="refresh-cw"></i><span>Recarregar dados</span></button>
       </div>
       <div class="card filtros-card">
         <div class="filtros-row">
@@ -389,6 +389,7 @@ tbody tr:hover{background:#f8fafc}
           <h2>Dashboard</h2>
           <p class="muted-txt" style="margin:4px 0 0">Visão geral da produção, hold e scrap</p>
         </div>
+        <button class="btn btn-ghost" onclick="recarregarDados()"><i data-lucide="refresh-cw"></i><span>Recarregar dados</span></button>
       </div>
       <div class="card filtros-card">
         <div class="filtros-row">
@@ -451,7 +452,10 @@ tbody tr:hover{background:#f8fafc}
 
     <!-- VIEW: RELATÓRIOS -->
     <section id="view-relatorios" class="view">
-      <div class="view-header"><h2>Relatórios</h2></div>
+      <div class="view-header">
+        <h2>Relatórios</h2>
+        <button class="btn btn-ghost" onclick="recarregarDados()"><i data-lucide="refresh-cw"></i><span>Recarregar dados</span></button>
+      </div>
       <div class="card filtros-card">
         <div class="filtros-row">
           <div class="grp"><label for="repDataIni">Data inicial</label><input type="date" id="repDataIni" onchange="renderRelatorioResumo()" /></div>
@@ -517,8 +521,6 @@ tbody tr:hover{background:#f8fafc}
    ESTADO
    ========================================================================= */
 const OPERADOR = "operador.teste";
-const LS_KEY = "apontamento_v3";
-const LS_KEY_OLD = "mvp_apontamento_v1";
 
 const SITUACAO_LABELS = {
   EM_PRODUCAO:"Em produção", COM_HOLD:"Aguardando decisão de Hold", FINALIZADA:"Finalizada (100% Scrap)"
@@ -545,6 +547,7 @@ let etiquetas = {};
 let logs = [];
 let atual = null;
 let busy = false;
+let busyAsync = false;
 let paginaEtiquetas = 1;
 const PAGE_SIZE = 10;
 
@@ -552,52 +555,64 @@ let html5qr=null, camRodando=false, scanProcessando=false;
 let chartProducaoHora=null, chartScrapMotivo=null;
 
 /* =========================================================================
-   PERSISTÊNCIA (com migração automática de mvp_apontamento_v1)
+   PERSISTÊNCIA (via API — Postgres)
    ========================================================================= */
-function salvar(){ localStorage.setItem(LS_KEY, JSON.stringify({etiquetas, logs})); }
-
-function carregar(){
-  try{
-    const raw = localStorage.getItem(LS_KEY);
-    if(raw){
-      const d = JSON.parse(raw);
-      etiquetas = d.etiquetas || {};
-      logs = d.logs || [];
-      return;
-    }
-    const old = localStorage.getItem(LS_KEY_OLD);
-    if(old){
-      const d = JSON.parse(old);
-      etiquetas = migrarEtiquetasV1(d.etiquetas||{});
-      logs = migrarLogsV1(d.logs||[]);
-      salvar();
-      setTimeout(()=>toast("Dados antigos importados com sucesso."), 600);
-    }
-  }catch(e){ console.warn("Falha ao carregar estado:", e); }
-}
-
-function migrarEtiquetasV1(oldMap){
-  const novo = {};
-  Object.values(oldMap).forEach(e=>{
-    const qtd = e.quantidade||0;
-    let qtdProduzida=0, qtdHold=0, qtdScrap=0;
-    if(e.status==="SCRAP") qtdScrap = qtd;
-    else if(e.status==="HOLD") qtdHold = qtd;
-    else if(e.status==="PRODUZIDA" || e.status==="PRODUZIDO_APOS_HOLD") qtdProduzida = qtd;
-    novo[e.chave] = {
-      origem:e.origem, item:e.item, ordem:e.ordem, sequencia:e.sequencia, chave:e.chave,
-      quantidade:qtd, qtdProduzida, qtdHold, qtdScrap, confirmada:!!e.status && e.status!=="NOVA",
-      scrapMotivo:e.motivoScrap||"", scrapObs:"",
-      holdMotivo:"", holdResponsavel:"", holdObs:"", holdDataEntrada:e.dataHold||null,
-      turno:"", operador:OPERADOR,
-      criadoEm:e.ultimaMov||agoraISO(), ultimaMov:e.ultimaMov||agoraISO(),
-      historico:[]
-    };
+async function apiRequest(method, path, body){
+  const res = await fetch(path, {
+    method,
+    headers: body!==undefined ? {"Content-Type":"application/json"} : undefined,
+    body: body!==undefined ? JSON.stringify(body) : undefined,
   });
-  return novo;
+  if(!res.ok){
+    let detail = res.statusText;
+    try{ const err = await res.json(); if(err.detail) detail = err.detail; }catch(e){}
+    throw new Error(detail || "Falha na comunicação com o servidor.");
+  }
+  if(res.status===204) return null;
+  return res.json();
 }
-function migrarLogsV1(oldLogs){
-  return oldLogs.map(l=>({ ...l, turno:l.turno||"", acao:"CONFIRMACAO_PRODUCAO", chave:`${l.ordem}-${l.item}-${l.sequencia}` }));
+const apiGet = (path)=> apiRequest("GET", path);
+const apiPost = (path, body)=> apiRequest("POST", path, body);
+const apiPatch = (path, body)=> apiRequest("PATCH", path, body);
+
+/* mapeia uma linha da API (snake_case) para o modelo interno (camelCase) */
+function etiquetaFromApi(row){
+  return {
+    chave:row.chave, origem:row.origem, item:row.item, ordem:row.ordem, sequencia:String(row.sequencia),
+    quantidade:row.quantidade, qtdProduzida:row.qtd_produzida, qtdHold:row.qtd_hold, qtdScrap:row.qtd_scrap,
+    confirmada:row.confirmada, leituras:row.leituras,
+    scrapMotivo:row.scrap_motivo||"", scrapObs:row.scrap_obs||"",
+    holdMotivo:row.hold_motivo||"", holdResponsavel:row.hold_responsavel||"", holdObs:row.hold_obs||"",
+    holdDataEntrada:row.hold_data_entrada, turno:row.turno||"", operador:row.operador||"",
+    rawQrContent:row.raw_qr_content||"", criadoEm:row.criado_em, ultimaMov:row.ultima_mov,
+  };
+}
+function etiquetaToCreatePayload(etq){
+  return {
+    chave:etq.chave, origem:etq.origem, item:etq.item, ordem:etq.ordem, sequencia:Number(etq.sequencia),
+    quantidade:etq.quantidade, turno:etq.turno||null, operador:etq.operador||null,
+    raw_qr_content:etq.rawQrContent||null,
+  };
+}
+/* mapeia uma movimentação da API para o formato local de logs[], enriquecendo com
+   origem/ordem/item/sequencia (a API não guarda essas colunas — são derivadas via join) */
+function movimentacaoFromApi(row){
+  const etq = etiquetas[row.chave] || {};
+  return {
+    ts:row.ts, dataHora:row.ts, acao:row.acao, quantidade:row.quantidade, usuario:row.usuario,
+    turno:row.turno||"", obs:row.obs||"", motivo:row.motivo||"", responsavel:row.responsavel||"",
+    chave:row.chave, origem:etq.origem, ordem:etq.ordem, item:etq.item, sequencia:etq.sequencia,
+  };
+}
+
+async function carregarDoServidor(){
+  const [etqRows, movRows] = await Promise.all([
+    apiGet("/api/etiquetas?limit=5000"),
+    apiGet("/api/movimentacoes?limit=5000"),
+  ]);
+  etiquetas = {};
+  etqRows.forEach(row=>{ etiquetas[row.chave] = etiquetaFromApi(row); });
+  logs = movRows.map(movimentacaoFromApi).reverse();
 }
 
 /* ---------- util ---------- */
@@ -618,6 +633,13 @@ function badgeHTML(situacao){
   return `<span class="status-badge ${SITUACAO_CSS[situacao]}"><i data-lucide="${SITUACAO_ICONS[situacao]}"></i>${SITUACAO_LABELS[situacao]}</span>`;
 }
 function withGuard(fn){ if(busy) return; busy=true; try{ fn(); } finally { setTimeout(()=>busy=false,350); } }
+async function withGuardAsync(fn){
+  if(busyAsync) return;
+  busyAsync = true;
+  try{ await fn(); }
+  catch(e){ console.error(e); toast(e.message||"Falha de comunicação com o servidor."); }
+  finally{ busyAsync = false; }
+}
 function refreshIcons(){ if(window.lucide) lucide.createIcons(); }
 
 /* =========================================================================
@@ -739,31 +761,15 @@ function resumoEtiquetaHTML(etq, saldoLabel, saldoQtd){
   </div>`;
 }
 
-function abrirModalConfirmacao({titulo, corBtn, textoBtn, etq, onConfirm}){
-  openModal(`
-    <h3>${titulo}</h3>
-    ${resumoEtiquetaHTML(etq)}
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="mCancelar">Cancelar</button>
-      <button class="btn ${corBtn}" id="mConfirmar">${textoBtn}</button>
-    </div>
-  `);
-  document.getElementById("mCancelar").onclick = closeModal;
-  document.getElementById("mConfirmar").onclick = ()=> withGuard(onConfirm);
-}
-
 /* ---------- histórico (reutilizável) ---------- */
-function registrarHistorico(etq, acao, quantidadeMovida, obs, extra){
+async function registrarHistorico(etq, acao, quantidadeMovida, obs, extra){
   extra = extra || {};
-  const entry = { ts:agoraISO(), acao, quantidade:quantidadeMovida, usuario:OPERADOR, turno:turnoAtual(), obs:obs||"", ...extra };
-  if(!etq.historico) etq.historico = [];
-  etq.historico.push(entry);
-  logs.push({
-    ...entry,
-    dataHora: entry.ts,
-    origem:etq.origem, ordem:etq.ordem, item:etq.item, sequencia:etq.sequencia,
-    chave:etq.chave
-  });
+  const payload = {
+    chave:etq.chave, acao, quantidade:quantidadeMovida, usuario:OPERADOR, turno:turnoAtual(), obs:obs||"",
+    motivo:extra.motivo||null, responsavel:extra.responsavel||null,
+  };
+  const row = await apiPost("/api/movimentacoes", payload);
+  logs.push(movimentacaoFromApi(row));
 }
 
 /* =========================================================================
@@ -1025,19 +1031,18 @@ function acaoConfirmarQuantidade(){
   const inp = document.getElementById("inpQtdConfirmar");
   const qtd = parseInt(inp.value,10);
   if(isNaN(qtd) || qtd<=0){ toast("Informe uma quantidade válida."); return; }
-  withGuard(()=>{
+  withGuardAsync(async ()=>{
     atual.quantidade = qtd;
-    atual.qtdProduzida = qtd;
-    atual.qtdHold = 0;
-    atual.qtdScrap = 0;
-    atual.confirmada = true;
-    atual.leituras = 1;
     atual.turno = turnoAtual();
     atual.operador = OPERADOR;
-    atual.ultimaMov = agoraISO();
+    const criada = await apiPost("/api/etiquetas", etiquetaToCreatePayload(atual));
+    const atualizada = await apiPatch(`/api/etiquetas/${encodeURIComponent(criada.chave)}`, {
+      qtd_produzida: qtd, qtd_hold: 0, qtd_scrap: 0, confirmada: true, leituras: 1,
+      turno: atual.turno, operador: atual.operador,
+    });
+    atual = etiquetaFromApi(atualizada);
     etiquetas[atual.chave] = atual;
-    registrarHistorico(atual, "CONFIRMACAO_PRODUCAO", qtd, "Quantidade confirmada na 1ª leitura");
-    salvar();
+    await registrarHistorico(atual, "CONFIRMACAO_PRODUCAO", qtd, "Quantidade confirmada na 1ª leitura");
     renderTudo();
     sucessoEFechaEEncerra("Produção confirmada", qtd, "green");
   });
@@ -1086,7 +1091,7 @@ function abrirModalSplitScrapHold(){
   inpScrap.oninput = atualizarRestante; inpHold.oninput = atualizarRestante; atualizarRestante();
 
   document.getElementById("mCancelar").onclick = ()=>{ closeModal(); voltarParaLeitura(); };
-  document.getElementById("mConfirmar").onclick = ()=> withGuard(()=>{
+  document.getElementById("mConfirmar").onclick = ()=> withGuardAsync(async ()=>{
     const scrapQtd = inpScrap.value.trim()==="" ? 0 : parseInt(inpScrap.value,10);
     const holdQtd = inpHold.value.trim()==="" ? 0 : parseInt(inpHold.value,10);
     if(isNaN(scrapQtd) || scrapQtd<0 || isNaN(holdQtd) || holdQtd<0){ toast("Informe quantidades válidas."); return; }
@@ -1109,17 +1114,14 @@ function abrirModalSplitScrapHold(){
     }
 
     const producaoQtd = etq.quantidade - scrapQtd - holdQtd;
-    if(scrapQtd>0) registrarHistorico(etq, "ENVIO_SCRAP", scrapQtd, "", {motivo:motivoScrap});
-    if(holdQtd>0) registrarHistorico(etq, "ENVIO_HOLD", holdQtd, "", {motivo:motivoHold, responsavel:respHold});
-    etq.qtdScrap = scrapQtd;
-    etq.qtdHold = holdQtd;
-    etq.qtdProduzida = producaoQtd;
-    if(scrapQtd>0) etq.scrapMotivo = motivoScrap;
-    if(holdQtd>0){ etq.holdMotivo = motivoHold; etq.holdResponsavel = respHold; etq.holdDataEntrada = agoraISO(); }
-    etq.leituras = 2;
-    etq.ultimaMov = agoraISO(); etq.operador = OPERADOR;
-    etiquetas[etq.chave] = etq;
-    salvar();
+    const patchBody = { qtd_scrap:scrapQtd, qtd_hold:holdQtd, qtd_produzida:producaoQtd, leituras:2 };
+    if(scrapQtd>0) patchBody.scrap_motivo = motivoScrap;
+    if(holdQtd>0){ patchBody.hold_motivo = motivoHold; patchBody.hold_responsavel = respHold; patchBody.hold_data_entrada = agoraISO(); }
+    const atualizada = await apiPatch(`/api/etiquetas/${encodeURIComponent(etq.chave)}`, patchBody);
+    atual = etiquetaFromApi(atualizada);
+    etiquetas[atual.chave] = atual;
+    if(scrapQtd>0) await registrarHistorico(atual, "ENVIO_SCRAP", scrapQtd, "", {motivo:motivoScrap});
+    if(holdQtd>0) await registrarHistorico(atual, "ENVIO_HOLD", holdQtd, "", {motivo:motivoHold, responsavel:respHold});
     closeModal();
     renderTudo();
     sucessoEFechaEEncerra("Distribuição registrada", etq.quantidade, "blue");
@@ -1157,7 +1159,7 @@ function abrirModalResolverHold(){
   inpScrap.oninput = atualizarRestante; atualizarRestante();
 
   document.getElementById("mCancelar").onclick = ()=>{ closeModal(); voltarParaLeitura(); };
-  document.getElementById("mConfirmar").onclick = ()=> withGuard(()=>{
+  document.getElementById("mConfirmar").onclick = ()=> withGuardAsync(async ()=>{
     const scrapQtd = inpScrap.value.trim()==="" ? 0 : parseInt(inpScrap.value,10);
     if(isNaN(scrapQtd) || scrapQtd<0 || scrapQtd>holdQtd0){ toast(`Informe uma quantidade entre 0 e ${holdQtd0}.`); return; }
     let motivo = selMotivo.value;
@@ -1167,16 +1169,15 @@ function abrirModalResolverHold(){
       motivo = outro;
     }
     const producaoQtd = holdQtd0 - scrapQtd;
-    if(scrapQtd>0) registrarHistorico(etq, "HOLD_PARA_SCRAP", scrapQtd, "", {motivo});
-    if(producaoQtd>0) registrarHistorico(etq, "HOLD_PARA_PRODUCAO", producaoQtd, "Hold liberado para produção");
-    etq.qtdHold = 0;
-    etq.qtdScrap += scrapQtd;
-    etq.qtdProduzida += producaoQtd;
-    if(scrapQtd>0) etq.scrapMotivo = motivo;
-    etq.leituras = 3;
-    etq.ultimaMov = agoraISO(); etq.operador = OPERADOR;
-    etiquetas[etq.chave] = etq;
-    salvar();
+    const patchBody = {
+      qtd_hold:0, qtd_scrap:etq.qtdScrap+scrapQtd, qtd_produzida:etq.qtdProduzida+producaoQtd, leituras:3,
+    };
+    if(scrapQtd>0) patchBody.scrap_motivo = motivo;
+    const atualizada = await apiPatch(`/api/etiquetas/${encodeURIComponent(etq.chave)}`, patchBody);
+    atual = etiquetaFromApi(atualizada);
+    etiquetas[atual.chave] = atual;
+    if(scrapQtd>0) await registrarHistorico(atual, "HOLD_PARA_SCRAP", scrapQtd, "", {motivo});
+    if(producaoQtd>0) await registrarHistorico(atual, "HOLD_PARA_PRODUCAO", producaoQtd, "Hold liberado para produção");
     closeModal();
     renderTudo();
     sucessoEFechaEEncerra("Hold resolvido", holdQtd0, "green");
@@ -1249,7 +1250,7 @@ function iniciarTurnoSelect(){
   atualizarTopbarSub();
 }
 function atualizarTopbarSub(){
-  document.getElementById("topbarSub").textContent = `Operador: ${OPERADOR} · ${turnoAtual()} · Dados armazenados localmente`;
+  document.getElementById("topbarSub").textContent = `Operador: ${OPERADOR} · ${turnoAtual()} · Dados armazenados no servidor`;
 }
 function iniciarRelogio(){
   const el = document.getElementById("relogio");
@@ -1448,7 +1449,7 @@ function descreverHistorico(h){
 function abrirDetalheEtiqueta(chave){
   const e = etiquetas[chave];
   if(!e) return;
-  const historicoHTML = (e.historico||[]).map(h=>`
+  const historicoHTML = logs.filter(l=>l.chave===e.chave).map(h=>`
     <div class="timeline-item">
       <div class="timeline-hora">${fmtHora(h.ts)}</div>
       <div class="timeline-txt">${descreverHistorico(h)}</div>
@@ -1629,40 +1630,50 @@ function renderTudo(){
   if(id==="view-relatorios") renderRelatorioResumo();
 }
 
-function resetTudo(){
-  abrirModalConfirmacao({
-    titulo:"Zerar TODAS as etiquetas e logs em memória?", corBtn:"btn-red", textoBtn:"Zerar tudo",
-    etq:{item:"—",ordem:"—",sequencia:"—",quantidade:"—"},
-    onConfirm:()=>{
-      etiquetas = {}; logs = []; atual = null;
-      localStorage.removeItem(LS_KEY);
-      closeModal();
-      renderApontamento(); renderTudo();
-      toast("Tudo zerado.");
-    }
-  });
+async function recarregarDados(){
+  try{
+    await carregarDoServidor();
+    renderApontamento();
+    renderTudo();
+    toast("Dados atualizados.");
+  }catch(e){
+    toast("Falha ao recarregar dados: "+e.message);
+  }
 }
 
 /* =========================================================================
    INICIALIZAÇÃO
    ========================================================================= */
-function init(){
-  carregar();
+async function init(){
   iniciarTurnoSelect();
   iniciarRelogio();
   initSamples();
 
-  document.getElementById("qrInput").addEventListener("keydown", e=>{
+  const qrInput = document.getElementById("qrInput");
+  qrInput.addEventListener("keydown", e=>{
     if(e.key==="Enter"){ e.preventDefault(); lerQR(); }
   });
 
   const hoje = new Date().toISOString().slice(0,10);
   ["dashDataIni","dashDataFim","repDataIni","repDataFim"].forEach(id=>{ document.getElementById(id).value = hoje; });
 
-  renderApontamento();
-  renderTudo();
   switchView("apontamento");
   refreshIcons();
+
+  qrInput.disabled = true;
+  const placeholderOriginal = qrInput.placeholder;
+  qrInput.placeholder = "Carregando dados do servidor...";
+  toast("Carregando dados do servidor...");
+  try{
+    await carregarDoServidor();
+  }catch(e){
+    toast("Falha ao carregar dados do servidor: "+e.message);
+  }
+  qrInput.disabled = false;
+  qrInput.placeholder = placeholderOriginal;
+
+  renderApontamento();
+  renderTudo();
   focusReadInput();
 }
 
